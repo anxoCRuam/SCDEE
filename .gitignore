@@ -8,3 +8,5 @@ __pycache__/
 
 # Archivo de notas de anxo
 notas.txt
+
+.vscode/
