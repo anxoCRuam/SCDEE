@@ -1,0 +1,119 @@
+% chapters/requirements/rf_auth.tex
+% RF-1: Autenticación y sesiones
+% ============================================================================
+
+\item \textbf{Autenticación y sesiones.} \label{rf:auth}
+El sistema debe proporcionar mecanismos de autenticación basados en \textit{tokens} que
+permitan a los usuarios identificarse y mantener sesiones seguras. La arquitectura de
+autenticación se diseña como un sistema \dfn{plugin} intercambiable, basado exclusivamente
+en \textit{tokens}, que permita la integración futura de mecanismos como \ac{sso}
+institucional (OAuth2 o \acs{saml}), de forma que el \dfn{frontend} no requiera cambios
+al sustituir un \dfn{plugin} por otro. Para la versión~1.0 se implementa un \dfn{plugin}
+de autenticación basado en \ac{jwt}, con \textit{access tokens} de corta vida y
+\textit{refresh tokens} rotativos.
+
+\begin{functional}
+
+    % RF-1.1 ----------------------------------------------------------------
+    \item \textbf{Abstracción del autenticador basado en \textit{tokens}.}
+    \label{rf:auth:abstraction}
+    El sistema debe definir una interfaz abstracta de autenticación basada en \textit{tokens}
+    que desacople el mecanismo concreto de autenticación del resto del sistema.
+
+    \textbf{Entrada:} no aplica directamente; este requisito define una restricción
+    arquitectónica.
+
+    \textbf{Proceso:} el \dfn{backend} expone los recursos de autenticación a través
+    de una interfaz genérica. Todos los \dfnpl{plugin} de autenticación deben producir
+    \textit{tokens} con una estructura de \textit{payload} común o compatible, de modo
+    que el \dfn{frontend} siempre reciba \textit{tokens} del mismo formato
+    independientemente del mecanismo subyacente. La implementación concreta se inyecta
+    como un \dfn{plugin} configurable. Los \dfnpl{plugin} previstos son: (1)~autenticador
+    \textit{bearer} \acs{jwt} por credenciales (versión~1.0), (2)~autenticador mixto \acs{sso}/
+    \acs{jwt} (futuro) y (3)~autenticador solo \acs{sso} (futuro). Cambiar de \dfn{plugin} no debe
+    requerir modificaciones en los recursos de negocio, los \textit{middlewares} de
+    autorización ni el \dfn{frontend}. La interfaz debe ser lo suficientemente genérica
+    para que, en el futuro, el \dfn{backend} pueda emitir un \textit{access\_token} válido
+    del sistema tras validar una aserción \acs{saml} externa.
+
+    \textbf{Salida:} el sistema funciona correctamente con cualquier \dfn{plugin} de
+    autenticación que implemente la interfaz definida y produzca \textit{tokens} con el
+    \textit{payload} común.
+
+    % RF-1.2 ----------------------------------------------------------------
+    \item \textbf{Inicio de sesión con credenciales.} \label{rf:auth:login}
+    El sistema debe autenticar a los usuarios mediante correo electrónico y contraseña,
+    emitiendo un par de \textit{tokens} \acs{jwt}.
+
+    \textbf{Entrada:} petición POST al recurso de autenticación con las credenciales del
+    usuario (correo electrónico y contraseña).
+
+    \textbf{Proceso:} el sistema valida que el correo electrónico corresponde a un usuario
+    registrado y activo, y verifica la contraseña contra el \textit{hash} almacenado en
+    base de datos. Si las credenciales son correctas, genera un \textit{access token} de
+    corta duración (5--30~minutos) y un \textit{refresh token} rotativo de
+    larga duración (7~días). El \textit{token} \acs{jwt} incluye en su \textit{payload} el
+    identificador de la organización del usuario para el filtrado \dfn{multi-tenant}
+    automático. Se registra el evento de inicio de sesión en el \textit{log} de auditoría.
+
+    \textbf{Salida:} respuesta con el par de \textit{tokens} (\textit{access} y
+    \textit{refresh}) y los datos básicos del usuario autenticado. En caso de credenciales
+    inválidas o usuario inactivo, respuesta de error con código \acs{http}~401.
+
+    % RF-1.3 ----------------------------------------------------------------
+    \item \textbf{Renovación de \textit{token} de acceso.} \label{rf:auth:refresh}
+    El sistema debe permitir obtener un nuevo \textit{access token} a partir de un
+    \textit{refresh token} válido, sin requerir las credenciales del usuario.
+
+    \textbf{Entrada:} petición POST al recurso de renovación con el \textit{refresh token}
+    actual.
+
+    \textbf{Proceso:} el sistema verifica que el \textit{refresh token} es válido, no ha
+    expirado y no se encuentra en la lista negra almacenada en Redis. Si es válido, genera
+    un nuevo par de \textit{tokens} y revoca el \textit{refresh token} anterior (rotación).
+
+    \textbf{Salida:} respuesta con el nuevo par de \textit{tokens}. Si el \textit{refresh
+    token} es inválido o está revocado, respuesta de error con código \acs{http}~401.
+
+    % RF-1.4 ----------------------------------------------------------------
+    \item \textbf{Cierre de sesión.} \label{rf:auth:logout}
+    El sistema debe permitir al usuario cerrar su sesión, invalidando los \textit{tokens}
+    activos.
+
+    \textbf{Entrada:} petición POST al recurso de cierre de sesión con el \textit{refresh
+    token} a invalidar.
+
+    \textbf{Proceso:} el sistema añade el \textit{refresh token} a la lista negra en
+    Redis con un \textit{ttl} igual al tiempo restante de expiración del \textit{token},
+    impidiendo su uso posterior para renovación. Se registra el evento de cierre de sesión
+    en el \textit{log} de auditoría.
+
+    \textbf{Salida:} respuesta de confirmación con código \acs{http}~204.
+
+    % RF-1.5 ----------------------------------------------------------------
+    \item \textbf{Preparación para \acl{sso} \dfn{multi-tenant}
+    \textnormal{[diseño preparatorio; no se implementa \dfn{plugin} \acs{sso} en la
+    versión~1.0]}.} \label{rf:auth:sso}
+    El sistema debe estar preparado arquitectónicamente para soportar autenticación
+    federada (\acs{saml}~2.0 y \acs{oidc}) por organización, sin requerir cambios en el
+    \dfn{frontend} ni en la lógica de negocio principal.
+
+    \textbf{Entrada:} configuración administrativa a nivel de organización.
+
+    \textbf{Proceso:} la organización dispondrá de un campo \texttt{auth\_mode} que
+    determine el flujo de autenticación activo. Se prevé la creación de tablas de
+    configuración por proveedor de identidad (\textit{SamlConfig}, \textit{OidcConfig})
+    para almacenar metadatos del \textit{IdP}, certificados X.509 y mapeo de atributos.
+    El \textit{endpoint} de inicio de autenticación identificará la organización a partir
+    del dominio de correo electrónico o subdominio y devolverá el flujo correspondiente.
+    Tras una autenticación \acs{sso} exitosa, el sistema emitirá el \acs{jwt} estándar del
+    sistema, garantizando que el \textit{middleware} de autorización y el resto del
+    \dfn{backend} operen de forma idéntica independientemente del origen de la
+    autenticación.
+
+    \textbf{Salida:} la arquitectura de \dfnpl{plugin} de autenticación
+    (\cref{rf:auth:abstraction}) estará diseñada para aceptar un proveedor de identidad
+    externo como fuente de verdad, validando la aserción externa y emitiendo el
+    \textit{token} interno correspondiente.
+
+\end{functional}

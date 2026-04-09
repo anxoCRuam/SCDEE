@@ -1,0 +1,102 @@
+% chapters/requirements/rf_assignment.tex
+% RF-8: Reglas de corrección
+% ============================================================================
+
+\item \textbf{Reglas de corrección.} \label{rf:assignment}
+El coordinador debe poder definir reglas de asignación (\texttt{AssignmentRule}) que
+determinen qué profesores corrigen qué instancias o problemas. Las reglas se basan en
+filtros combinables: grupo, modelo y problema. El sistema soporta que varios correctores
+estén asignados al mismo problema de la misma instancia; en ese caso, todos pueden
+calificar y la coordinación se resuelve de forma externa.
+
+\begin{functional}
+
+    % RF-8.1 ----------------------------------------------------------------
+    \item \textbf{Creación de reglas de asignación.} \label{rf:assignment:create}
+    El sistema debe permitir al coordinador crear reglas que asignen correctores a
+    instancias o problemas.
+
+    \textbf{Entrada:} petición POST al recurso de reglas del examen con los datos de la
+    regla: lista de profesores correctores y filtros de alcance combinables: grupo (uno,
+    varios o todos), modelo (uno, varios o todos) y problema (uno, varios o todos).
+
+    \textbf{Proceso:} el sistema almacena la regla y calcula las asignaciones concretas que
+    genera: qué corrector evalúa qué instancia y qué problemas. Por ejemplo, una regla
+    <<el profesor~A corrige los problemas~1, 3 y~5 del modelo~A>> genera una asignación
+    por cada instancia del modelo~A.
+
+    \textbf{Salida:} respuesta con la regla creada, el número de asignaciones generadas y
+    código \acs{http}~201.
+
+    % RF-8.2 ----------------------------------------------------------------
+    \item \textbf{Modificación de reglas de asignación.} \label{rf:assignment:update}
+    El sistema debe permitir al coordinador modificar una regla de asignación existente.
+
+    \textbf{Entrada:} petición PATCH al recurso de la regla con los datos a modificar.
+
+    \textbf{Proceso:} el sistema recalcula las asignaciones derivadas de la regla
+    modificada. Si la modificación elimina asignaciones sobre instancias que ya tienen
+    calificaciones, se emite una advertencia pero se permite la modificación.
+
+    \textbf{Salida:} respuesta con la regla actualizada, el nuevo número de asignaciones y,
+    si procede, la advertencia sobre calificaciones existentes.
+
+    % RF-8.3 ----------------------------------------------------------------
+    \item \textbf{Eliminación de reglas de asignación.} \label{rf:assignment:delete}
+    El sistema debe permitir al coordinador eliminar una regla de asignación.
+
+    \textbf{Entrada:} petición DELETE al recurso de la regla.
+
+    \textbf{Proceso:} el sistema elimina la regla y las asignaciones derivadas. Si hay
+    calificaciones asociadas a asignaciones que se eliminan, estas calificaciones se
+    conservan pero los correctores pierden el acceso a esas instancias.
+
+    \textbf{Salida:} respuesta con código \acs{http}~204.
+
+    % RF-8.4 ----------------------------------------------------------------
+    \item \textbf{Aplicación de reglas y cálculo de asignaciones.}
+    \label{rf:assignment:apply}
+    El sistema debe aplicar todas las reglas activas del examen para generar las
+    asignaciones concretas de corrector a instancias y problemas.
+
+    \textbf{Entrada:} petición POST al recurso de aplicación de reglas del examen, o evento
+    interno tras la creación de nuevas instancias (ingesta).
+
+    \textbf{Proceso:} el sistema evalúa todas las reglas del examen contra el conjunto
+    actual de instancias y genera o actualiza las asignaciones. Si una instancia nueva
+    cumple los filtros de una regla existente, se le asigna automáticamente el corrector
+    correspondiente.
+
+    \textbf{Salida:} respuesta con el resumen de asignaciones generadas o actualizadas.
+
+    % RF-8.5 ----------------------------------------------------------------
+    \item \textbf{Verificación de cobertura.} \label{rf:assignment:coverage}
+    El sistema debe verificar que las reglas definidas cubren todas las instancias y
+    problemas del examen.
+
+    \textbf{Entrada:} petición GET al recurso de verificación de cobertura del examen.
+
+    \textbf{Proceso:} el sistema identifica las instancias y los problemas que no tienen al
+    menos un corrector asignado. Agrupa los resultados por modelo y grupo para facilitar la
+    identificación de huecos.
+
+    \textbf{Salida:} respuesta indicando si la cobertura es completa o, en caso contrario,
+    la lista detallada de instancias y problemas sin corrector asignado.
+
+    % RF-8.6 ----------------------------------------------------------------
+    \item \textbf{Listado de tareas del corrector.} \label{rf:assignment:tasks}
+    El sistema debe permitir a un corrector consultar las instancias y problemas que tiene
+    asignados para corregir.
+
+    \textbf{Entrada:} petición GET al recurso de tareas del corrector, con filtro opcional
+    de examen y estado de corrección.
+
+    \textbf{Proceso:} el sistema recupera todas las asignaciones activas del corrector
+    autenticado (derivadas de \texttt{AssignmentRule}), agrupadas por examen. Para cada
+    asignación indica: instancia, problemas asignados, estado de corrección de cada
+    problema (calificado o pendiente) y si la instancia tiene incidencias.
+
+    \textbf{Salida:} respuesta con la lista de tareas del corrector, paginada y con los
+    indicadores de estado.
+
+\end{functional}

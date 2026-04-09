@@ -1,12 +1,82 @@
-# Ignorar archivos compilados
-*.pyc
+# Python
 __pycache__/
-*.pyo
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
 
-# Variables de entorno
+# Virtual environments
+.venv/
+venv/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Environment & secrets
 .env
+.env.*
+!.env.example
+
+# Docker volumes (local fallback)
+docker-compose.override.yml
+minio_data/
+postgres_data/
+redis_data/
+
+# IDE
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing & quality
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Archivo de notas de anxo
 notas.txt
 
-.vscode/
+# LaTeX
+*.acn
+*.acr
+*.alg
+*.aux
+*.bbl
+*.blg
+*.glg
+*.glo
+*.gls
+*.idx
+*.ilg
+*.ind
+*.ist
+*.loa
+*.loe
+*.lof
+*.log
+*.lol
+*.lot
+*.ltb
+*.mw
+*.pdf
+*.toc
+*.out
+*.xdy

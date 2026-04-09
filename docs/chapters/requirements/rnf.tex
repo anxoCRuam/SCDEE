@@ -1,0 +1,160 @@
+% chapters/requirements/rnf.tex
+% Requisitos no funcionales
+% ============================================================================
+
+% RNF-1 --------------------------------------------------------------------
+\item \textbf{Rendimiento.} \label{rnf:performance}
+El sistema debe satisfacer los siguientes tiempos de respuesta en condiciones normales de
+operación: las operaciones \acs{crud} estándar de la \acs{api} deben completarse en menos
+de 500~ms; la carga y descarga de ficheros \acs{pdf} debe completarse en menos de
+3~segundos; los listados paginados deben servirse en menos de 1~segundo; las exportaciones
+de datos deben completarse en menos de 10~segundos; y las tareas asíncronas de \acs{ocr}
+deben procesarse en menos de 60~segundos por instancia. Estos tiempos se miden desde la
+recepción de la petición hasta el envío de la respuesta, excluyendo la latencia de red.
+
+% RNF-2 --------------------------------------------------------------------
+\item \textbf{Concurrencia.} \label{rnf:concurrency}
+El sistema debe soportar un pico de concurrencia de aproximadamente 1\,200~usuarios
+simultáneos por organización, correspondiente al escenario de publicación de notas o
+apertura de revisión con cuatro asignaturas de 300~alumnos cada una. En operación normal de
+corrección, el sistema debe soportar al menos 30~correctores simultáneos por organización
+sin degradación apreciable del rendimiento. En modo \dfn{multi-tenant}, el sistema debe
+aislar el rendimiento entre organizaciones para que un pico en una no afecte a las demás.
+
+% RNF-3 --------------------------------------------------------------------
+\item \textbf{Despliegue.} \label{rnf:deployment}
+El sistema debe poder desplegarse mediante un único fichero \texttt{docker-compose.yml} que
+levante todos los servicios necesarios: Django (\acs{api}), PostgreSQL (base de datos),
+Redis (caché y \textit{broker} de colas), uno o más \dfnpl{worker} de Celery (\acs{ocr} y
+notificaciones), MinIO (almacenamiento de objetos) y un servidor \acs{sftp} (ingesta de
+\acs{pdf}). La configuración específica del entorno (credenciales, claves, puertos) debe
+externalizarse en ficheros de variables de entorno. El sistema debe poder ejecutarse
+íntegramente en una única máquina para el modo instalación institucional. En la versión~1.0,
+una única instancia de Django es suficiente para este modo.
+
+% RNF-4 --------------------------------------------------------------------
+\item \textbf{Escalabilidad.} \label{rnf:scalability}
+La arquitectura de contenedores debe facilitar un futuro despliegue distribuido en servicios
+\textit{cloud} para el modo SaaS, sin cambios arquitectónicos en el código fuente. Los
+\dfnpl{worker} de Celery deben poder replicarse horizontalmente. El aislamiento entre
+organizaciones se garantiza a nivel lógico mediante el campo \texttt{organization\_id} y un
+\textit{middleware} de Django que lo inyecta en las consultas.
+
+% RNF-5 --------------------------------------------------------------------
+\item \textbf{Disponibilidad y observabilidad.} \label{rnf:availability}
+El sistema debe exponer un \textit{endpoint} de \textit{health check} (\texttt{/health/})
+que verifique la conectividad con PostgreSQL, Redis, MinIO y el estado de los
+\dfnpl{worker} de Celery. La respuesta debe indicar el estado individual de cada
+componente y un estado global del sistema. Este \textit{endpoint} no requiere
+autenticación.
+
+% RNF-6 --------------------------------------------------------------------
+\item \textbf{Seguridad en la \acs{api}.} \label{rnf:api_security}
+El sistema debe implementar \textit{rate limiting} en la \acs{api} para prevenir abuso,
+utilizando el mecanismo de \textit{throttling} de \acs{drf} o una solución equivalente.
+Los límites deben ser configurables por organización y por tipo de usuario. Todas las
+entradas del usuario deben validarse y sanearse para prevenir inyecciones y ataques
+comunes. Las respuestas que contengan datos sensibles (\acs{pdf}, calificaciones, datos
+personales descifrados) deben incluir cabeceras \acs{http} anti-caché
+(\texttt{Cache-Control: no-store, no-cache, must-revalidate}, \texttt{Pragma: no-cache},
+\texttt{Expires: 0}) para instruir al navegador y a cualquier \textit{proxy} intermedio a
+no almacenar el contenido. En futuras versiones se implementará cifrado en tránsito
+mediante HTTPS/TLS en todas las comunicaciones.
+
+% RNF-7 --------------------------------------------------------------------
+\item \textbf{Cumplimiento del \acs{rgpd}.} \label{rnf:gdpr}
+El sistema debe cumplir con los requisitos técnicos derivados del \acs{rgpd} aplicables a
+los datos que maneja (\acs{dni}, calificaciones, datos de posibles menores): cifrado en
+reposo de datos especialmente sensibles (\acs{dni}), auditoría de accesos tanto a
+modificaciones como a lecturas de datos de categoría especial, no eliminación física de
+usuarios (\textit{soft delete}) y almacenamiento seguro de contraseñas. La anonimización
+de registros y los \textit{endpoints} de gestión de derechos ARCO se contemplan para
+versiones futuras. En el escenario de autodespliegue, la responsabilidad del tratamiento
+recae sobre la institución; en el escenario SaaS futuro, se requerirán contratos de encargo
+de tratamiento y despliegue en regiones del Espacio Económico Europeo.
+
+% RNF-8 --------------------------------------------------------------------
+\item \textbf{Interoperabilidad.} \label{rnf:interop}
+El \dfn{backend} debe exponer una \acs{api} \acs{rest} versionada mediante prefijo de ruta
+(\texttt{/api/v1/}) cuyo contrato se documenta mediante una especificación OpenAPI~3.x
+generada automáticamente a partir del código fuente (mediante \texttt{drf-spectacular} o
+herramienta equivalente). El sistema debe exponer la especificación en \textit{endpoints}
+de documentación interactiva (Swagger~UI o ReDoc). Todas las respuestas de la \acs{api}
+utilizan formato \acs{json}, salvo las descargas de ficheros binarios. Las respuestas de
+error siguen un formato uniforme con código de error simbólico, sin mensajes en lenguaje
+natural, para facilitar la independencia lingüística. El contrato \acs{api} constituye la
+interfaz formal entre el \dfn{backend} y el \dfn{frontend}.
+
+% RNF-9 --------------------------------------------------------------------
+\item \textbf{Mantenibilidad y extensibilidad.} \label{rnf:maintainability}
+El sistema debe diseñarse con una arquitectura modular que facilite la incorporación de
+nuevas funcionalidades. En concreto, el autenticador y el motor de \acs{ocr} deben
+implementarse como \dfnpl{plugin} intercambiables. El código debe seguir los principios de
+separación de responsabilidades, con capas diferenciadas para la \acs{api} (serializadores
+y vistas), la lógica de negocio (servicios) y el acceso a datos (modelos y repositorios).
+Se debe evitar el acoplamiento directo entre subsistemas, favoreciendo la comunicación
+mediante eventos o interfaces definidas. El filtrado \dfn{multi-tenant} por
+\texttt{organization\_id} debe implementarse mediante un \textit{middleware} de Django que
+inyecte automáticamente el filtro en todas las consultas.
+
+% RNF-10 -------------------------------------------------------------------
+\item \textbf{Internacionalización.} \label{rnf:i18n}
+La interfaz de la \acs{api} debe ser lo más agnóstica al idioma posible: los códigos de
+error, tipos de evento y claves de configuración se expresan en inglés técnico. Los
+contenidos generados para el usuario (correos electrónicos, mensajes de notificación) deben
+soportar internacionalización (i18n) mediante el sistema de traducción de Django. En la
+versión~1.0, el idioma por defecto por organización es el español, con posibilidad de añadir
+idiomas adicionales en versiones futuras mediante ficheros de traducción. El motor de
+\acs{ocr} debe poder configurarse con el idioma del texto a reconocer.
+
+% RNF-11 -------------------------------------------------------------------
+\item \textbf{Observabilidad y \textit{logging}.} \label{rnf:logging}
+El sistema debe mantener dos niveles de \textit{logging} diferenciados. El \textit{log} de
+aplicación registra eventos técnicos (errores, advertencias, información de depuración)
+siguiendo las prácticas estándar de cualquier aplicación en producción, con formato
+estructurado (\acs{json}) y niveles de severidad configurables. El \textit{log} de
+auditoría registra eventos de negocio con impacto en datos (detallado en
+\cref{rf:sec:audit}). Ambos \textit{logs} son independientes y tienen políticas de
+retención distintas: el \textit{log} de aplicación se rota periódicamente; el \textit{log}
+de auditoría es inmutable y permanente.
+
+% RNF-12 -------------------------------------------------------------------
+\item \textbf{Pruebas.} \label{rnf:testing}
+El sistema debe contar con una cobertura de pruebas que garantice la fiabilidad del
+\textit{software}. Se requieren tres niveles de pruebas: pruebas unitarias para la lógica
+de negocio y funciones de utilidad; pruebas de integración para verificar la interacción
+entre componentes (base de datos, cola de tareas, almacenamiento de objetos, \acs{api},
+filtrado \dfn{multi-tenant}); y pruebas de carga para validar los requisitos de rendimiento
+y concurrencia bajo los escenarios definidos (picos de publicación, ingesta masiva de
+\acs{pdf}).
+
+% RNF-13 -------------------------------------------------------------------
+\item \textbf{Persistencia e integridad de datos.} \label{rnf:persistence}
+La base de datos principal es PostgreSQL. El sistema debe garantizar la integridad
+referencial de los datos en todo momento: los usuarios no se eliminan físicamente
+(\textit{soft delete} con \texttt{is\_active}), las relaciones entre entidades se mantienen
+mediante claves foráneas con restricciones adecuadas y las operaciones críticas se ejecutan
+dentro de transacciones atómicas. Redis se utiliza como caché, \textit{broker} de Celery y
+almacén de la lista negra de \textit{tokens}; no se emplea como almacenamiento primario de
+datos de negocio. El aislamiento \dfn{multi-tenant} se garantiza mediante el campo
+\texttt{organization\_id} en todas las tablas principales y un \textit{middleware} que lo
+inyecta en las consultas.
+
+% RNF-14 -------------------------------------------------------------------
+\item \textbf{Almacenamiento de objetos.} \label{rnf:object_storage}
+MinIO se utiliza como servicio de almacenamiento de objetos para todos los ficheros de
+tamaño variable: \acs{pdf} de instancias, \acs{pdf} en blanco de modelos, audios de
+anotaciones y, en el futuro, imágenes. El almacenamiento en MinIO es independiente de la
+base de datos: los metadatos de los ficheros (tamaño, tipo, referencia) se almacenan en
+PostgreSQL y los ficheros binarios en MinIO. La organización de \dfnpl{bucket} debe
+permitir el aislamiento \dfn{multi-tenant} (un \dfn{bucket} por organización o un prefijo
+por organización dentro de un \dfn{bucket} compartido). Esta separación facilita el
+escalado independiente del almacenamiento y la migración futura a servicios compatibles con
+S3.
+
+% RNF-15 -------------------------------------------------------------------
+\item \textbf{Paginación.} \label{rnf:pagination}
+Todos los \textit{endpoints} de listado de la \acs{api} deben devolver resultados paginados
+mediante paginación por \textit{offset}. El tamaño de página por defecto y el tamaño máximo
+son configurables. Cada respuesta paginada incluye los metadatos de paginación: número
+total de elementos, página actual, tamaño de página y número total de páginas.

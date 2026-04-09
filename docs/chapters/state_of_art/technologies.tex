@@ -1,0 +1,63 @@
+% chapters/state_of_art/technologies.tex
+% Sección 2.2: Tecnologías y herramientas (~2-3 páginas)
+% ============================================================================
+%
+% GUÍA: Describir las tecnologías utilizadas en el proyecto, justificando
+%       la elección de cada una frente a alternativas. Para cada tecnología:
+%       - Qué es y para qué sirve
+%       - Por qué se eligió (ventajas frente a alternativas)
+%       - Citar la documentación oficial o artículos relevantes
+%
+%   Organizar por subsecciones (sin numerar, usar \paragraph{}):
+%
+%   \paragraph{Python y Django}
+%   - Python como lenguaje de propósito general, madurez, ecosistema.
+%   - Django: framework web full-stack, ORM, admin, migraciones.
+%   - Alternativas descartadas: Flask (microframework, menos estructura),
+%     FastAPI (más moderno pero menos maduro), Spring Boot (Java).
+%   - Citar: ~\cite{django2024,python2024}
+%
+%   \paragraph{Django REST Framework}
+%   - Serialización, vistas genéricas, autenticación, permisos, paginación.
+%   - Alternativas: Django Ninja, Tastypie.
+%   - Citar: ~\cite{drf2024}
+%
+%   \paragraph{PostgreSQL}
+%   - RDBMS robusto, soporte JSON, extensiones, rendimiento.
+%   - Alternativas: MySQL/MariaDB, SQLite (no concurrente).
+%   - Citar: ~\cite{postgresql2024}
+%
+%   \paragraph{Celery y Redis}
+%   - Celery: cola de tareas distribuida para Python.
+%   - Redis: broker de mensajes, caché.
+%   - Alternativas: RabbitMQ (broker), Dramatiq (cola), Huey.
+%   - Citar: ~\cite{celery2024,redis2024}
+%
+%   \paragraph{MinIO}
+%   - Almacenamiento de objetos compatible con S3.
+%   - Para PDFs, anotaciones de audio, imágenes rasterizadas.
+%   - Alternativas: almacenamiento local, Amazon S3 directamente.
+%   - Citar: ~\cite{minio2024}
+%
+%   \paragraph{Reconocimiento óptico de caracteres (OCR)}
+%   TODO: Especificar qué motor de OCR usas (Tesseract, EasyOCR, PaddleOCR,
+%         Google Vision, etc.). Describir brevemente cómo funciona y por qué
+%         se eligió. Mencionar la arquitectura pluggable que permite cambiar
+%         el motor sin afectar al resto del sistema.
+%   - Citar: ~\cite{tesseract2024} o el motor elegido.
+%
+%   \paragraph{Docker y Docker Compose}
+%   - Contenerización de servicios, reproducibilidad, despliegue.
+%   - Citar: ~\cite{docker2024}
+%
+%   \paragraph{Otras herramientas}
+%   TODO: Añadir según se vayan usando. Posibles candidatas:
+%   - drf-spectacular (generación OpenAPI/Swagger)
+%   - pytest / pytest-django (pruebas)
+%   - Pillow (procesamiento de imágenes)
+%   - WeasyPrint o reportlab (generación de PDFs rasterizados)
+%   - Herramientas de CI/CD si se configuran
+%   - Git, GitHub/GitLab
+% ============================================================================
+
+% TODO: Redactar la revisión de tecnologías.

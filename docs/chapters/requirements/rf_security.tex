@@ -1,0 +1,143 @@
+% chapters/requirements/rf_security.tex
+% RF-16: Seguridad y auditoría
+% ============================================================================
+
+\item \textbf{Seguridad y auditoría.} \label{rf:security}
+El sistema debe garantizar la protección de los datos sensibles que maneja (\acs{dni},
+calificaciones, datos de posibles menores) mediante medidas técnicas específicas. El
+\textit{log} de auditoría es un registro inmutable de escritura única que ningún rol puede
+modificar ni eliminar, constituyendo un requisito de \textit{compliance} y seguridad
+operativa desde la versión~1.0. El alcance del \textit{log} de auditoría es por
+organización, con un \textit{log} global para el superadministrador del sistema.
+
+\begin{functional}
+
+    % RF-16.1 ---------------------------------------------------------------
+    \item \textbf{Registro inmutable de eventos de auditoría.}
+    \label{rf:sec:audit}
+    El sistema debe registrar de forma inmutable los eventos de negocio con impacto en
+    datos.
+
+    \textbf{Entrada:} evento interno generado por cualquier operación auditada del sistema.
+
+    \textbf{Proceso:} el sistema registra cada evento en una tabla \textit{append-only} de
+    PostgreSQL con permisos restrictivos a nivel de base de datos: la aplicación solo tiene
+    permiso de inserción, nunca de actualización ni borrado. Cada registro incluye:
+    \texttt{organization\_id}, tipo de evento, usuario actor, dirección IP de origen, marca
+    temporal, entidad afectada, identificadores de la entidad y los datos relevantes del
+    evento (valores anteriores y nuevos en caso de modificación). Los eventos auditados
+    incluyen: inicio y cierre de sesión (éxito y fallo), acceso a \acs{pdf} de examen,
+    lectura de datos sensibles (\acs{dni} descifrado), creación, modificación y eliminación
+    de entidades principales (usuarios, asignaturas, exámenes, instancias), modificación de
+    calificaciones, cambios de permisos y roles, operaciones de importación y exportación
+    masiva, cambio de curso académico, modificación de configuración de organización y
+    ejecución de borrado automático.
+
+    \textbf{Salida:} registro de auditoría almacenado de forma permanente e inmutable.
+
+    % RF-16.2 ---------------------------------------------------------------
+    \item \textbf{Consulta del \textit{log} de auditoría.} \label{rf:sec:audit_query}
+    El sistema debe permitir a un gestor consultar el \textit{log} de auditoría de su
+    organización con filtros avanzados.
+
+    \textbf{Entrada:} petición GET al recurso del \textit{log} de auditoría con parámetros
+    opcionales de filtrado: rango de fechas, tipo de evento, usuario actor, entidad
+    afectada, dirección IP y paginación.
+
+    \textbf{Proceso:} el sistema recupera los registros de la organización del gestor que
+    cumplen los filtros, ordenados cronológicamente (descendente por defecto). Los registros
+    del \textit{log} de auditoría nunca se eliminan ni archivan: persisten de forma
+    indefinida.
+
+    \textbf{Salida:} respuesta con la lista paginada de registros de auditoría.
+
+    % RF-16.3 ---------------------------------------------------------------
+    \item \textbf{Cifrado de \acs{dni} en reposo.} \label{rf:sec:dni}
+    El sistema debe cifrar el \acs{dni} de los usuarios antes de almacenarlo en la base de
+    datos.
+
+    \textbf{Entrada:} operación de creación o modificación de un usuario que incluya el
+    campo \acs{dni}.
+
+    \textbf{Proceso:} el sistema cifra el valor del \acs{dni} mediante AES-256-GCM con una
+    clave maestra almacenada como variable de entorno del sistema, nunca en la base de
+    datos. Cada registro utiliza un \textit{nonce} único garantizado por el modo GCM. El
+    \acs{dni} cifrado se almacena junto con el \textit{nonce} y la etiqueta de
+    autenticación. El descifrado se realiza solo cuando es necesario mostrar el \acs{dni} a
+    un usuario autorizado (gestor de la organización o el propio usuario). La rotación de la
+    clave maestra se contempla para la versión~2.0.
+
+    \textbf{Salida:} \acs{dni} almacenado cifrado en la base de datos.
+
+    % RF-16.4 ---------------------------------------------------------------
+    \item \textbf{\textit{Hash} seguro de contraseñas.} \label{rf:sec:hash}
+    El sistema debe almacenar las contraseñas de los usuarios como \textit{hash} con
+    \textit{salt}, utilizando un algoritmo resistente a ataques de fuerza bruta.
+
+    \textbf{Entrada:} contraseña en texto plano proporcionada durante la creación,
+    importación o restablecimiento de contraseña.
+
+    \textbf{Proceso:} el sistema genera un \textit{salt} aleatorio y aplica un algoritmo de
+    \textit{hashing} robusto (Argon2 o bcrypt) para producir el \textit{hash}. Solo se
+    almacenan el \textit{hash} y el \textit{salt}; la contraseña en texto plano se descarta
+    inmediatamente después del \textit{hashing}. Durante la autenticación, se aplica el
+    mismo algoritmo a la contraseña proporcionada y se compara con el \textit{hash}
+    almacenado.
+
+    \textbf{Salida:} contraseña almacenada como \textit{hash} seguro.
+
+    % RF-16.5 ---------------------------------------------------------------
+    \item \textbf{\acsp{url} temporales con expiración para \acs{pdf}.}
+    \label{rf:sec:presigned}
+    El sistema debe generar \acsp{url} temporales con expiración para el acceso a los
+    ficheros \acs{pdf} almacenados en MinIO.
+
+    \textbf{Entrada:} petición de acceso a un \acs{pdf} (de instancia o de modelo).
+
+    \textbf{Proceso:} en lugar de servir el fichero directamente a través de la \acs{api},
+    el sistema genera una \acs{url} \textit{presigned} de MinIO con un tiempo de expiración
+    configurable por organización. La \acs{url} caduca automáticamente tras el tiempo
+    configurado. Se registra el acceso en el \textit{log} de auditoría.
+
+    \textbf{Salida:} respuesta con la \acs{url} temporal. Tras la expiración, la \acs{url}
+    deja de ser válida.
+
+    % RF-16.6 ---------------------------------------------------------------
+    \item \textbf{Marca de agua dinámica en \acs{pdf} servidos a alumnos.}
+    \label{rf:sec:watermark}
+    El sistema debe aplicar una marca de agua dinámica a los \acs{pdf} de instancias cuando
+    se sirven a alumnos, dificultando su redistribución.
+
+    \textbf{Entrada:} petición de acceso al \acs{pdf} de una instancia por parte de un
+    alumno.
+
+    \textbf{Proceso:} el sistema genera una versión del \acs{pdf} con una marca de agua que
+    incluye datos identificativos del alumno (nombre, \acs{nia}) y una marca temporal. La
+    generación de la marca de agua se realiza en tiempo de petición o mediante caché para
+    evitar regeneración repetida durante la misma sesión de revisión. El \acs{pdf} original
+    en MinIO no se modifica.
+
+    \textbf{Salida:} \acs{pdf} con marca de agua servido al alumno.
+
+    % RF-16.7 ---------------------------------------------------------------
+    \item \textbf{Protección anti-descarga de \acs{pdf}.}
+    \label{rf:sec:anti_download}
+    El sistema debe dificultar la descarga no autorizada de \acs{pdf} por parte de los
+    alumnos, aplicando múltiples capas de protección.
+
+    \textbf{Entrada:} petición de visualización de \acs{pdf} por un alumno (cuando el
+    permiso de descarga está desactivado).
+
+    \textbf{Proceso:} el sistema aplica las siguientes medidas combinadas: \acsp{url}
+    temporales con expiración corta (\cref{rf:sec:presigned}), marca de agua dinámica
+    (\cref{rf:sec:watermark}), cabeceras \acs{http} anti-caché y cifrado simple del
+    \textit{payload} del \acs{pdf} en tránsito (cifrado con una clave derivada del
+    identificador de sesión del usuario, que el \dfn{frontend} descifra en cliente). Este
+    cifrado no es criptográficamente robusto contra un atacante sofisticado, pero obliga a
+    inspeccionar el código del \dfn{frontend} para acceder al contenido, disuadiendo la
+    descarga casual. La cabecera \texttt{Content-Disposition} se establece como
+    \texttt{inline} (nunca \texttt{attachment}).
+
+    \textbf{Salida:} \acs{pdf} servido con todas las protecciones activas.
+
+\end{functional}

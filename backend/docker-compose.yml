@@ -1,0 +1,165 @@
+# ============================================================
+# SCDEE Backend — Docker Compose (Development)
+# ============================================================
+# Services:
+#   api:            Django REST API (port 8000)
+#   db:             PostgreSQL 16 (port 5432)
+#   redis:          Redis 7 — cache, Celery broker, token blacklist (port 6379)
+#   minio:          MinIO — S3-compatible object storage (API 9000, Console 9001)
+#   celery_worker:  Celery worker — processes async tasks (OCR, email)
+#   celery_beat:    Celery beat — schedules periodic tasks
+#   mailpit:        Email capture for development (UI 8025, SMTP 1025)
+#
+# References: RNF-3 (single docker-compose deployment)
+# ============================================================
+
+services:
+
+  # ── Django API server ──────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for hot-reload during development.
+      - .:/app
+      # Shared volume for SFTP simulation (ingestion inbox).
+      - ingestion_inbox:/app/ingestion_inbox
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    restart: unless-stopped
+
+  # ── PostgreSQL database ────────────────────────────────────
+  # Primary data store for all business entities (RNF-13).
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Init scripts run on first container start (alphabetical order).
+      - ./scripts/db:/docker-entrypoint-initdb.d:ro
+    environment:
+      POSTGRES_DB: ${DB_NAME:-scdee}
+      POSTGRES_USER: ${DB_USER:-scdee}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-scdee_dev_password}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-scdee} -d ${DB_NAME:-scdee}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Redis ──────────────────────────────────────────────────
+  # Used for: Django cache, Celery broker, Celery result backend,
+  # JWT token blacklist. NOT for primary data (RNF-13).
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── MinIO (S3-compatible object storage) ───────────────────
+  # Stores: exam PDFs, blank templates, audio annotations (RNF-14).
+  # Organized as a single bucket with per-org prefixes.
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+
+  # ── Celery worker ──────────────────────────────────────────
+  # Processes async tasks from all three queues:
+  #   default, ocr (RF-9), notifications (RF-13).
+  # In production, you'd run separate workers per queue.
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      celery -A scdee worker
+      --loglevel=info
+      --queues=default,ocr,notifications
+      --concurrency=2
+    volumes:
+      - .:/app
+      - ingestion_inbox:/app/ingestion_inbox
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Celery beat (periodic task scheduler) ──────────────────
+  # Triggers scheduled tasks (auto-deletion, review window
+  # open/close). Uses DB-backed scheduler (django-celery-beat)
+  # so schedules persist across restarts.
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      celery -A scdee beat
+      --loglevel=info
+      --scheduler=django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Mailpit (email capture for development) ────────────────
+  # Captures all outgoing emails without actually sending them.
+  # Web UI at http://localhost:8025 shows all captured emails.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP server
+    restart: unless-stopped
+
+# ── Named volumes ────────────────────────────────────────────
+# Persist data across container restarts. Delete with:
+#   docker compose down -v
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  ingestion_inbox:
+    driver: local

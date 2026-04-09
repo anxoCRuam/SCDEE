@@ -1,0 +1,57 @@
+% chapters/design/data_model.tex
+% Sección 4.2: Modelo de datos (~2-3 páginas)
+% ============================================================================
+%
+% GUÍA: Presentar el modelo de datos con dos perspectivas complementarias.
+%
+%   --- DIAGRAMA 3: Modelo Entidad-Relación ---
+%   Diagrama E-R de la base de datos PostgreSQL. Entidades principales:
+%     - User (con campos de anonimización para RGPD)
+%     - AcademicYear, Subject, Group
+%     - Enrollment (alumno-grupo)
+%     - Role, PermissionBlock, PermissionOverride
+%     - Exam, ExamModel, Problem, OCRZone
+%     - ExamInstance (con campo de estado: máquina de estados)
+%     - Annotation (anotaciones multimedia)
+%     - Grade, ReviewRequest
+%     - AuditLog
+%     - Notification
+%
+%   \begin{figure}{fig:er_diagram}{Modelo Entidad-Relación de la base de datos}
+%     \image{}{}{er_diagram}
+%   \end{figure}
+%
+%   TODO: Crear la imagen figures/er_diagram.png (o .pdf).
+%         Herramientas: pgModeler, dbdiagram.io, draw.io, DBeaver.
+%         NOTA: Si el diagrama E-R es muy grande, poner la versión simplificada
+%         aquí y la versión completa en el Apéndice C.
+%
+%   --- DIAGRAMA 4: Diagrama de clases del dominio ---
+%   Diagrama de clases UML centrado en los modelos Django más relevantes.
+%   No necesita ser exhaustivo: destacar las relaciones, herencia y los
+%   campos más importantes. Agrupar por subsistema funcional.
+%
+%   \begin{figure}{fig:class_diagram}{Diagrama de clases del modelo de dominio}
+%     \image{}{}{class_diagram}
+%   \end{figure}
+%
+%   TODO: Crear la imagen figures/class_diagram.png (o .pdf).
+%         Herramientas: PlantUML, draw.io, pyreverse (auto-genera desde Django).
+%
+%   --- CONTENIDO TEXTUAL ---
+%   1. Describir las entidades principales y sus relaciones.
+%   2. Explicar las decisiones de diseño:
+%      - Borrado lógico (soft delete) para RGPD (\ref{rnf:gdpr:deletion}).
+%      - Versionado con campos para concurrencia optimista.
+%      - Desnormalizaciones justificadas (si las hay).
+%   3. Describir el modelo de permisos:
+%      - Bloques funcionales con acciones.
+%      - Cadena de evaluación: rol global → sobrecarga asignatura → individual.
+%      - Referencia a \ref{rf:users} y \ref{rnf:maint:perms}.
+%   4. Explicar cómo se almacenan los ficheros:
+%      - PDFs originales en MinIO, referenciados por clave en BD.
+%      - Anotaciones binarias (audio, imágenes) en MinIO.
+%      - Referencia a \ref{rnf:perf:files}.
+% ============================================================================
+
+% TODO: Redactar la sección del modelo de datos y crear los diagramas.

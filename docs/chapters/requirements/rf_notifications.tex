@@ -1,0 +1,122 @@
+% chapters/requirements/rf_notifications.tex
+% RF-13: Notificaciones
+% ============================================================================
+
+\item \textbf{Notificaciones.} \label{rf:notifications}
+El sistema de notificaciones opera en dos canales: notificaciones \textit{in-app}
+(almacenadas en la base de datos y consultables por el usuario mediante \dfn{polling}) y
+correo electrónico (espejo opcional de la notificación \textit{in-app}, activable por cada
+usuario). El envío de correos se procesa de forma asíncrona mediante la cola de tareas.
+Las notificaciones se archivan en los cambios de curso. Existen además correos directos
+(bienvenida, restablecimiento de contraseña) que no generan notificación \textit{in-app}.
+
+\begin{functional}
+
+    % RF-13.1 ---------------------------------------------------------------
+    \item \textbf{Creación de notificación \textit{in-app}.}
+    \label{rf:notifications:create}
+    El sistema debe crear notificaciones internas asociadas a eventos del dominio.
+
+    \textbf{Entrada:} evento interno del sistema (publicación de notas, apertura de
+    revisión, asignación de corrección, resultado de revisión, etc.).
+
+    \textbf{Proceso:} el sistema crea un registro de notificación en la base de datos con el
+    tipo de evento, el mensaje, la fecha, el usuario destinatario y el estado de lectura (no
+    leída por defecto). El contenido del mensaje se genera a partir del tipo de evento y los
+    datos del contexto.
+
+    \textbf{Salida:} notificación almacenada y disponible para consulta por el usuario
+    destinatario.
+
+    % RF-13.2 ---------------------------------------------------------------
+    \item \textbf{Envío de correo electrónico espejo.}
+    \label{rf:notifications:email_mirror}
+    El sistema debe enviar un correo electrónico espejo para cada notificación
+    \textit{in-app}, si el usuario destinatario tiene habilitadas las notificaciones por
+    correo.
+
+    \textbf{Entrada:} evento interno disparado tras la creación de una notificación
+    \textit{in-app}.
+
+    \textbf{Proceso:} el sistema verifica la preferencia de notificación del usuario. Si el
+    correo está habilitado, encola una tarea asíncrona en la cola de notificaciones para
+    enviar el correo con la plantilla correspondiente al tipo de evento. El fallo en el
+    envío del correo no afecta a la notificación \textit{in-app}.
+
+    \textbf{Salida:} correo electrónico enviado al usuario, o registro de error en el
+    \textit{log} de aplicación si el envío falla.
+
+    % RF-13.3 ---------------------------------------------------------------
+    \item \textbf{Marcado de notificación como leída.}
+    \label{rf:notifications:read}
+    El sistema debe permitir al usuario marcar sus notificaciones como leídas.
+
+    \textbf{Entrada:} petición PATCH al recurso de la notificación (individual o masiva) con
+    el nuevo estado de lectura.
+
+    \textbf{Proceso:} el sistema actualiza el estado de lectura de la notificación o
+    notificaciones indicadas. Se permite el marcado masivo (marcar todas como leídas).
+
+    \textbf{Salida:} respuesta con el estado de lectura actualizado.
+
+    % RF-13.4 ---------------------------------------------------------------
+    \item \textbf{Listado de notificaciones.} \label{rf:notifications:list}
+    El sistema debe permitir al usuario consultar sus notificaciones con paginación.
+
+    \textbf{Entrada:} petición GET al recurso de notificaciones propias con parámetros
+    opcionales de filtrado (estado de lectura, tipo de evento) y paginación.
+
+    \textbf{Proceso:} el sistema recupera las notificaciones del usuario ordenadas por fecha
+    descendente, aplicando los filtros indicados. Las notificaciones archivadas no aparecen
+    en el listado por defecto.
+
+    \textbf{Salida:} respuesta con la lista paginada de notificaciones.
+
+    % RF-13.5 ---------------------------------------------------------------
+    \item \textbf{Archivado de notificaciones en cambio de curso.}
+    \label{rf:notifications:archive}
+    El sistema debe archivar las notificaciones del curso anterior al ejecutar la transición
+    de curso.
+
+    \textbf{Entrada:} evento interno disparado por la transición de curso
+    (\cref{rf:courses:transition}).
+
+    \textbf{Proceso:} el sistema marca todas las notificaciones asociadas al curso archivado
+    como archivadas. Las notificaciones archivadas dejan de aparecer en el listado por
+    defecto pero siguen accesibles para los gestores.
+
+    \textbf{Salida:} notificaciones archivadas.
+
+    % RF-13.6 ---------------------------------------------------------------
+    \item \textbf{Envío de correo directo.} \label{rf:notifications:direct_email}
+    El sistema debe enviar correos electrónicos directos que no generan notificación
+    \textit{in-app}.
+
+    \textbf{Entrada:} evento interno de bienvenida con contraseña (usuario nuevo) o de
+    restablecimiento de contraseña.
+
+    \textbf{Proceso:} el sistema encola una tarea asíncrona para enviar el correo con la
+    plantilla correspondiente. Estos correos se envían siempre, independientemente de las
+    preferencias de notificación del usuario.
+
+    \textbf{Salida:} correo electrónico enviado.
+
+    % RF-13.7 ---------------------------------------------------------------
+    \item \textbf{Plantillas de correo electrónico y notificación.}
+    \label{rf:notifications:templates}
+    El sistema debe definir y gestionar plantillas de correo para los distintos tipos de
+    notificaciones.
+
+    \textbf{Entrada:} no aplica directamente; este requisito define las plantillas que el
+    sistema debe implementar.
+
+    \textbf{Proceso:} el sistema debe implementar las siguientes plantillas con soporte de
+    internacionalización: bienvenida con contraseña, restablecimiento de contraseña,
+    publicación de notas, apertura de revisión, solicitudes de revisión agrupadas (para
+    corrector), asignación de corrección (para corrector), resultado de revisión (para
+    alumno) y recordatorio de borrado automático (para gestor). Las plantillas reciben los
+    datos del contexto como variables.
+
+    \textbf{Salida:} correos generados con el contenido y formato adecuados.
+
+\end{functional}

@@ -1,0 +1,180 @@
+% chapters/requirements/rf_subjects.tex
+% RF-4: Asignaturas y grupos
+% ============================================================================
+
+\item \textbf{Asignaturas y grupos.} \label{rf:subjects}
+Las asignaturas constituyen la unidad organizativa principal del dominio académico. Cada
+asignatura pertenece a un curso académico (que a su vez pertenece a una organización) y
+contiene grupos de estudiantes, profesores asignados y exactamente un coordinador. Los
+grupos son exclusivos de cada asignatura: un identificador de grupo en una asignatura es
+independiente del mismo identificador en otra. Un usuario puede pertenecer a varias
+asignaturas del mismo curso y su rol se define en cada una mediante
+\texttt{SubjectMembership}.
+
+\begin{functional}
+
+    % RF-4.1 ----------------------------------------------------------------
+    \item \textbf{Creación individual de asignatura.} \label{rf:subjects:create}
+    El sistema debe permitir a un gestor crear una asignatura asociada al curso activo de
+    su organización.
+
+    \textbf{Entrada:} petición POST al recurso de asignaturas con los datos: nombre,
+    código, cuatrimestre (etiqueta libre: <<1.er cuatrimestre>>, <<anual>>, etc.) y el
+    identificador del usuario que será coordinador.
+
+    \textbf{Proceso:} el sistema valida que el código de asignatura sea único dentro del
+    curso activo y que el usuario designado como coordinador exista, esté activo y
+    pertenezca a la misma organización. Se crea la asignatura y se asigna al coordinador
+    mediante una \texttt{SubjectMembership} con \texttt{role=COORDINATOR} y el conjunto
+    completo de permisos contextuales por defecto.
+
+    \textbf{Salida:} respuesta con los datos de la asignatura creada y código
+    \acs{http}~201.
+
+    % RF-4.2 ----------------------------------------------------------------
+    \item \textbf{Importación masiva de asignaturas.} \label{rf:subjects:import}
+    El sistema debe permitir a un gestor crear múltiples asignaturas simultáneamente,
+    incluyendo la asignación de usuarios y grupos.
+
+    \textbf{Entrada:} petición POST con un fichero en formato \acs{csv} o \acs{json} que
+    contenga, para cada asignatura: nombre, código, cuatrimestre, coordinador, lista de
+    profesores, lista de grupos y asignación de estudiantes a grupos.
+
+    \textbf{Proceso:} el sistema parsea el fichero y procesa cada asignatura de forma
+    transaccional. Para cada una, se validan los datos, se crea la asignatura, se asignan
+    los grupos, se asigna al coordinador y se vinculan profesores y estudiantes con sus
+    roles y grupos respectivos mediante \texttt{SubjectMembership}
+    (\texttt{is\_active=True}). Si un usuario referenciado no existe en la organización, se
+    reporta como error en esa fila sin abortar el resto de la importación.
+
+    \textbf{Salida:} respuesta con un informe del resultado: número de asignaturas creadas,
+    omitidas por error, y detalle de los errores de validación por fila.
+
+    % RF-4.3 ----------------------------------------------------------------
+    \item \textbf{Modificación de asignatura.} \label{rf:subjects:update}
+    El sistema debe permitir a un gestor o al coordinador de la asignatura modificar sus
+    datos.
+
+    \textbf{Entrada:} petición PATCH al recurso de la asignatura con los campos a modificar
+    (nombre, código, cuatrimestre, coordinador).
+
+    \textbf{Proceso:} el sistema valida los datos actualizados. Si se cambia el coordinador,
+    se actualiza el campo \texttt{coordinator} en la asignatura. El antiguo coordinador
+    mantiene su \texttt{SubjectMembership} pero su rol se puede ajustar. Al nuevo
+    coordinador se le otorga el rol \texttt{COORDINATOR} en \texttt{SubjectMembership},
+    creándola si no existía.
+
+    \textbf{Salida:} respuesta con los datos actualizados de la asignatura.
+
+    % RF-4.4 ----------------------------------------------------------------
+    \item \textbf{Eliminación de asignatura.} \label{rf:subjects:delete}
+    El sistema debe permitir a un gestor eliminar una asignatura que no tenga exámenes
+    asociados.
+
+    \textbf{Entrada:} petición DELETE al recurso de la asignatura.
+
+    \textbf{Proceso:} el sistema verifica que la asignatura no tiene exámenes creados. Si
+    los tiene, la eliminación se rechaza para preservar la integridad de los datos. Si no
+    tiene exámenes, se eliminan las \texttt{SubjectMembership} asociadas y se elimina la
+    asignatura.
+
+    \textbf{Salida:} respuesta con código \acs{http}~204 si se elimina correctamente, o
+    código \acs{http}~409 si tiene exámenes asociados.
+
+    % RF-4.5 ----------------------------------------------------------------
+    \item \textbf{Gestión de grupos.} \label{rf:subjects:groups}
+    El sistema debe permitir al coordinador o al gestor crear, modificar y eliminar grupos
+    dentro de una asignatura.
+
+    \textbf{Entrada:} peticiones POST, PATCH o DELETE al recurso de grupos de la
+    asignatura, con el identificador del grupo (cadena alfanumérica, por ejemplo
+    <<2121>>).
+
+    \textbf{Proceso:} al crear un grupo, se valida la unicidad del identificador dentro de
+    la asignatura. Al eliminar un grupo, los estudiantes asignados a él quedan en la
+    asignatura sin grupo asignado (mantienen su \texttt{SubjectMembership} con el campo de
+    grupo vacío). Un estudiante sin grupo no puede ser convocado a exámenes hasta que se le
+    reasigne uno.
+
+    \textbf{Salida:} respuesta con los datos del grupo creado o modificado, o código
+    \acs{http}~204 en caso de eliminación.
+
+    % RF-4.6 ----------------------------------------------------------------
+    \item \textbf{Asignación de usuarios a asignatura.} \label{rf:subjects:assign}
+    El sistema debe permitir al coordinador o al gestor vincular usuarios a una asignatura
+    con un rol específico (profesor o estudiante) y asignarlos a un grupo.
+
+    \textbf{Entrada:} petición POST al recurso de miembros de la asignatura con el
+    identificador del usuario, el rol (\texttt{TEACHER} o \texttt{STUDENT}) y,
+    opcionalmente, el identificador del grupo.
+
+    \textbf{Proceso:} el sistema valida que el usuario exista, esté activo y pertenezca a la
+    organización. Se crea una \texttt{SubjectMembership} con el rol y los permisos
+    contextuales predeterminados según la configuración de la organización (véase
+    \cref{rf:config:default_perms}). Si el rol es \texttt{STUDENT}, se verifica que el
+    grupo indicado exista dentro de la asignatura y que el estudiante no esté ya asignado a
+    otro grupo en la misma asignatura. Un estudiante puede estar temporalmente sin grupo
+    asignado. Si el rol es \texttt{TEACHER}, la asignación a grupo es opcional.
+
+    \textbf{Salida:} respuesta con los datos de la asignación (usuario, rol, grupo,
+    permisos).
+
+    % RF-4.7 ----------------------------------------------------------------
+    \item \textbf{Desasignación de usuarios de asignatura.} \label{rf:subjects:unassign}
+    El sistema debe permitir al coordinador o al gestor desvincular a un usuario de una
+    asignatura.
+
+    \textbf{Entrada:} petición DELETE al recurso del miembro de la asignatura
+    (\texttt{SubjectMembership}).
+
+    \textbf{Proceso:} si el usuario tiene instancias de examen asociadas como corrector o
+    estudiante, el sistema marca la \texttt{SubjectMembership} como
+    \texttt{is\_active=False} (desactivación lógica); en caso contrario, se elimina
+    físicamente.
+
+    \textbf{Salida:} respuesta con código \acs{http}~204.
+
+    % RF-4.8 ----------------------------------------------------------------
+    \item \textbf{Listado de asignaturas del usuario.} \label{rf:subjects:own_list}
+    El sistema debe permitir a cualquier usuario autenticado consultar las asignaturas del
+    curso activo en las que participa.
+
+    \textbf{Entrada:} petición GET al recurso de asignaturas propias.
+
+    \textbf{Proceso:} el sistema recupera las asignaturas del curso activo de la
+    organización del usuario en las que tiene una \texttt{SubjectMembership} activa
+    (\texttt{is\_active=True}), incluyendo el rol y el grupo si procede.
+
+    \textbf{Salida:} respuesta con la lista de asignaturas, cada una con su nombre, código,
+    cuatrimestre, rol del usuario y grupo asignado.
+
+    % RF-4.9 ----------------------------------------------------------------
+    \item \textbf{Consulta detallada de asignatura.} \label{rf:subjects:detail}
+    El sistema debe permitir consultar la información completa de una asignatura, incluyendo
+    miembros, grupos y exámenes.
+
+    \textbf{Entrada:} petición GET al recurso de la asignatura.
+
+    \textbf{Proceso:} el sistema recupera los datos de la asignatura según el rol del
+    usuario que consulta. Los gestores, el coordinador y los profesores obtienen la
+    información completa (todos los miembros, grupos y exámenes). Los estudiantes obtienen
+    la información básica de la asignatura, su grupo y los exámenes publicados, sin lista
+    de estudiantes.
+
+    \textbf{Salida:} respuesta con los datos de la asignatura adaptados al nivel de acceso
+    del usuario.
+
+    % RF-4.10 ---------------------------------------------------------------
+    \item \textbf{Exportación de asignaturas.} \label{rf:subjects:export}
+    El sistema debe permitir a un gestor exportar las asignaturas del curso activo de su
+    organización en formato estructurado.
+
+    \textbf{Entrada:} petición GET al recurso de exportación de asignaturas con parámetro
+    de formato (\acs{csv} o \acs{json}).
+
+    \textbf{Proceso:} el sistema genera un fichero con los datos de las asignaturas,
+    incluyendo las asignaciones de usuarios y grupos, en el formato solicitado.
+
+    \textbf{Salida:} respuesta con el fichero generado como descarga.
+
+\end{functional}

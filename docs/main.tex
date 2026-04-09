@@ -1,0 +1,203 @@
+% arara: clean: {files: [main.aux, main.idx, main.ilg, main.ind, main.bbl, main.bcf, main.blg, main.run.xml, main.fdb_latexmk, main.fls, main.loe, main.lof, main.lol, main.lot, main.ltb, main.out, main.toc, main.upa, main.upb, main.acn, main.acr, main.alg, main.glg, main.glo, main.gls, main.glsdefs, main.xdy, main.loa, main.gnuploterrors, main.mw]}
+% arara: pdflatex: {shell: yes}
+% arara: makeglossaries
+% arara: makeindex: {style: main.ist}
+% arara: bibtex
+% arara: pdflatex: {shell: yes}
+% arara: pdflatex: {shell: yes}
+
+% =============================================================================
+% TFG: Backend de Sistema de Corrección Digital de Exámenes Escritos (SCDEE/B)
+% Autor: Anxo Canay Reguera
+% Tutor: Eloy Anguiano Rey
+% Grado en Ingeniería Informática — EPS, UAM
+% =============================================================================
+
+\documentclass[
+  epsbased,           % Imagen institucional EPS
+  tfg,                % Trabajo Fin de Grado
+  copyright,          % Copyright estándar
+  covers,             % Cubiertas institucionales
+  final,              % Sin marca de agua
+  printable,          % Márgenes asimétricos para encuadernación
+  extendedindex,      % Índice con subapartados
+  firstnumbered,      % Numerar primeras páginas de capítulo
+  lof,                % Lista de figuras
+  lot,                % Lista de tablas
+  loc                 % Lista de códigos
+  % loa,              % Lista de algoritmos (descomentar si hay >=3 algoritmos)
+]{tfgtfmthesisuam}
+
+% =============================================================================
+% METADATOS DEL DOCUMENTO
+% =============================================================================
+
+\title[SCDEE/B]{Backend de Sistema de Corrección Digital de Exámenes Escritos}
+% \subtitle{}  % Descomentar y completar si se necesita subtítulo
+\author{Anxo Canay Reguera}
+\advisor{Eloy Anguiano Rey}
+\levelin{Grado en Ingeniería Informática}
+\copyrightdate{2026}
+
+% TODO: Sustituir ??
+\privateaddress{C\textbackslash\ Francisco Tomás y Valiente N\textsuperscript{o} 11}
+
+% =============================================================================
+% DEDICATORIA Y CITA CÉLEBRE
+% =============================================================================
+
+% TODO: Escribir la dedicatoria personal
+\dedication{A quienes me han acompañado en este camino...}
+
+% TODO: Elegir una cita célebre. Algunas opciones:
+%   - ``Talk is cheap. Show me the code.'' — Linus Torvalds
+%   - ``First, solve the problem. Then, write the code.'' — John Johnson
+%   - ``It works on my machine. Then we'll ship your machine.'' — Anónimo
+%   - Cualquier otra que te guste
+\famouscite{``Placeholder de la cita célebre.'' \\[0.1em] \begin{flushright}Autor\end{flushright}}
+
+% =============================================================================
+% FICHEROS DE SECCIONES PRELIMINARES
+% =============================================================================
+
+\resumenfile{frontmatter/resumen}
+\abstractfile{frontmatter/abstract}
+\ackfile{frontmatter/acknowledgements}
+% \prefacefile{frontmatter/preface}  % Opcional, descomentar si se necesita
+
+% =============================================================================
+% DATOS DE PORTADA
+% =============================================================================
+
+\coverdata
+{
+  Escuela Politécnica Superior \\
+  Universidad Autónoma de Madrid \\
+  C\textbackslash Francisco Tomás y Valiente n\textsuperscript{o} 11
+}
+
+% =============================================================================
+% PALABRAS CLAVE (se insertan al final de resumen.tex y abstract.tex)
+% =============================================================================
+% Nota: \palabrasclave y \keywords se definen dentro de los ficheros
+%       frontmatter/resumen.tex y frontmatter/abstract.tex respectivamente.
+
+% =============================================================================
+% BIBLIOGRAFÍA
+% =============================================================================
+
+\bibliographyconfig[IEEEtran]{bibliography}
+
+% =============================================================================
+% DIRECTORIOS DE RECURSOS
+% =============================================================================
+
+\graphicsdir{figures}
+\logosdir{figures}
+\codesdir{codes}
+\datadir{data}
+
+% =============================================================================
+% METADATOS DEL PDF
+% =============================================================================
+
+\pdfmetavalues
+  {Anxo Canay Reguera}
+  {Backend de Sistema de Corrección Digital de Exámenes Escritos}
+  {TFG}
+  {corrección digital, exámenes, OCR, Django, backend, sistema distribuido}
+
+% =============================================================================
+% ACRÓNIMOS Y DEFINICIONES
+% =============================================================================
+
+\input{preamble/acronyms}
+\input{preamble/definitions}
+
+% =============================================================================
+% CUERPO DEL DOCUMENTO
+% =============================================================================
+
+\begin{document}
+
+% -----------------------------------------------------------------------------
+% Capítulo 1: Introducción (~3-4 páginas)
+% \section{\texorpdfstring{Árboles de decisión}{Arboles de decision}} ??
+% -----------------------------------------------------------------------------
+\chapter{Introducción\label{ch:introduction}}{chapters/introduction/introduction}
+  \section{Motivación\label{sec:motivation}}{chapters/introduction/motivation}
+  \section{Objetivos\label{sec:objectives}}{chapters/introduction/objectives}
+  \section{Estructura del documento\label{sec:doc_structure}}{chapters/introduction/document_structure}
+% -----------------------------------------------------------------------------
+% Capítulo 2: Estado del arte (~4-5 páginas)
+% -----------------------------------------------------------------------------
+\chapter{Estado del arte\label{ch:state_of_art}}{chapters/state_of_art/state_of_art}
+  \section{Sistemas de corrección de exámenes\label{sec:correction_systems}}{chapters/state_of_art/correction_systems}
+  \section{Tecnologías y herramientas\label{sec:technologies}}{chapters/state_of_art/technologies}
+  \section{Conclusiones del estado del arte\label{sec:sota_conclusions}}{chapters/state_of_art/sota_conclusions}
+
+% -----------------------------------------------------------------------------
+% Capítulo 3: Análisis de requisitos (~5-6 páginas)
+% Nota: las secciones se definen dentro de requirements.tex porque los
+%       requisitos ya tienen estructura interna propia con \section.
+% -----------------------------------------------------------------------------
+\chapter{Análisis de requisitos\label{ch:requirements}}{chapters/requirements/requirements}
+
+% -----------------------------------------------------------------------------
+% Capítulo 4: Diseño del sistema (~8-10 páginas)
+% -----------------------------------------------------------------------------
+\chapter{Diseño del sistema\label{ch:design}}{chapters/design/design}
+  \section{Arquitectura del sistema\label{sec:architecture}}{chapters/design/architecture}
+  \section{Modelo de datos\label{sec:data_model}}{chapters/design/data_model}
+  \section{Diseño de la API REST\label{sec:api_design}}{chapters/design/api_design}
+  \section{Sistema de autenticación \textit{pluggable}\label{sec:auth_system}}{chapters/design/auth_system}
+  \section{Pipeline de ingesta y OCR\label{sec:ocr_pipeline}}{chapters/design/ocr_pipeline}
+  \section{Ciclo de vida del examen\label{sec:exam_lifecycle}}{chapters/design/exam_lifecycle}
+
+% -----------------------------------------------------------------------------
+% Capítulo 5: Implementación (~8-10 páginas)
+% -----------------------------------------------------------------------------
+\chapter{Implementación\label{ch:implementation}}{chapters/implementation/implementation}
+  \section{Metodología de desarrollo\label{sec:methodology}}{chapters/implementation/methodology}
+  \section{Desarrollo por subsistemas\label{sec:subsystems}}{chapters/implementation/subsystems}
+  \section{Aspectos técnicos relevantes\label{sec:technical_details}}{chapters/implementation/technical_details}
+
+% -----------------------------------------------------------------------------
+% Capítulo 6: Pruebas y validación (~4-5 páginas)
+% -----------------------------------------------------------------------------
+\chapter{Pruebas y validación\label{ch:testing}}{chapters/testing/testing}
+  \section{Estrategia de pruebas\label{sec:test_strategy}}{chapters/testing/strategy}
+  \section{Pruebas unitarias\label{sec:unit_tests}}{chapters/testing/unit_tests}
+  \section{Pruebas de integración\label{sec:integration_tests}}{chapters/testing/integration_tests}
+  \section{Pruebas de carga\label{sec:load_tests}}{chapters/testing/load_tests}
+  \section{Resumen de resultados\label{sec:test_results}}{chapters/testing/results_summary}
+
+% -----------------------------------------------------------------------------
+% Capítulo 7: Conclusiones y trabajo futuro (~2 páginas)
+% -----------------------------------------------------------------------------
+\chapter{Conclusiones y trabajo futuro\label{ch:conclusions}}{chapters/conclusions/conclusions}
+  \section{Conclusiones\label{sec:conclusions}}{chapters/conclusions/achieved_objectives}
+  \section{Trabajo futuro\label{sec:future_work}}{chapters/conclusions/future_work}
+
+% =============================================================================
+% APÉNDICES
+% =============================================================================
+
+\appendix
+
+% -----------------------------------------------------------------------------
+% Apéndice A: Requisitos globales del sistema (frontend + backend + comunes)
+% -----------------------------------------------------------------------------
+\chapter{Requisitos globales del sistema\label{ap:global_requirements}}{appendices/global_requirements}
+
+% -----------------------------------------------------------------------------
+% Apéndice B: Manual de instalación y despliegue
+% -----------------------------------------------------------------------------
+\chapter{Manual de instalación y despliegue\label{ap:deployment}}{appendices/deployment_manual}
+
+% -----------------------------------------------------------------------------
+% Apéndice C: Resultados detallados de pruebas
+% -----------------------------------------------------------------------------
+\chapter{Resultados detallados de pruebas\label{ap:detailed_results}}{appendices/detailed_results}
+
+\end{document}

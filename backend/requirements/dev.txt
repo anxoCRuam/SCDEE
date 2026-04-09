@@ -1,0 +1,29 @@
+-r base.txt
+
+# ============================================================
+# Testing
+# ============================================================
+pytest>=8.0,<9.0                   # Test runner
+pytest-django>=4.9,<5.0            # Django integration for pytest
+pytest-cov>=6.0,<7.0               # Coverage reporting
+factory-boy>=3.3,<4.0              # Test object factories
+Faker>=33.0,<35.0                  # Fake data generation
+
+# ============================================================
+# Linting & formatting
+# ============================================================
+ruff>=0.8,<1.0                     # Linter + formatter (replaces flake8, isort, black)
+pre-commit>=4.0,<5.0               # Git hook manager
+
+# ============================================================
+# Type checking
+# ============================================================
+mypy>=1.14,<2.0                    # Static type checker
+django-stubs>=5.1,<6.0             # Django type stubs
+djangorestframework-stubs>=3.15,<4.0  # DRF type stubs
+
+# ============================================================
+# Debugging
+# ============================================================
+ipdb>=0.13,<1.0                    # Interactive debugger
+django-debug-toolbar>=4.4,<5.0     # Debug toolbar (optional, browser-based)

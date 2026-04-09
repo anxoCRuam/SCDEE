@@ -1,0 +1,57 @@
+% chapters/design/architecture.tex
+% Sección 4.1: Arquitectura del sistema (~2-3 páginas)
+% ============================================================================
+%
+% GUÍA: Presentar la visión global del sistema. Incluir dos diagramas clave.
+%
+%   --- DIAGRAMA 1: Arquitectura de componentes ---
+%   Mostrar cómo encajan frontend y backend (contexto del TFG coordinado):
+%     - Frontend (React — TFG de Alejandro Soler)
+%     - Backend API (Django + DRF)
+%     - Base de datos (PostgreSQL)
+%     - Broker de colas (Redis)
+%     - Workers (Celery: OCR, email, tareas periódicas)
+%     - Almacenamiento de objetos (MinIO)
+%     - Watcher SFTP (monitorización de escáner)
+%     - Escáner / impresora (fuente de PDFs)
+%
+%   Usar una figura:
+%   \begin{figure}{fig:architecture}{Diagrama de componentes del \ac{scdee}}
+%     \image{}{}{architecture_components}
+%   \end{figure}
+%
+%   TODO: Crear la imagen figures/architecture_components.png (o .pdf)
+%         con un diagrama de componentes UML o informal.
+%         Herramientas recomendadas: draw.io, Excalidraw, PlantUML.
+%
+%   --- DIAGRAMA 2: Diagrama de despliegue ---
+%   Mostrar los contenedores Docker y sus conexiones de red:
+%     - django (API REST, puerto 8000)
+%     - postgres (BD, puerto 5432)
+%     - redis (broker, puerto 6379)
+%     - celery-worker (workers OCR/email)
+%     - celery-beat (tareas periódicas)
+%     - minio (almacenamiento, puerto 9000)
+%     - sftp-watcher (monitorización)
+%
+%   \begin{figure}{fig:deployment}{Diagrama de despliegue con Docker Compose}
+%     \image{}{}{deployment_diagram}
+%   \end{figure}
+%
+%   TODO: Crear la imagen figures/deployment_diagram.png (o .pdf).
+%
+%   --- CONTENIDO TEXTUAL ---
+%   1. Explicar la separación frontend/backend vía API REST.
+%   2. Justificar la arquitectura de servicios desacoplados
+%      (referencia a RNF de escalabilidad: \ref{rnf:scale:decoupled}).
+%   3. Describir la comunicación entre componentes:
+%      - HTTP/HTTPS entre frontend y API
+%      - TCP entre API y PostgreSQL
+%      - Redis como broker para Celery
+%      - API S3 entre servicios y MinIO
+%      - Filesystem para SFTP watcher
+%   4. Mencionar la preparación para despliegue en la nube
+%      (\ref{rnf:infra:cloud}).
+% ============================================================================
+
+% TODO: Redactar la sección de arquitectura y crear los diagramas.

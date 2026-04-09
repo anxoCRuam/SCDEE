@@ -1,0 +1,92 @@
+% chapters/requirements/rf_export.tex
+% RF-14: Exportación y búsqueda
+% ============================================================================
+
+\item \textbf{Exportación y búsqueda.} \label{rf:export}
+El sistema debe proporcionar capacidades de búsqueda avanzada para los gestores,
+permitiendo la exploración jerárquica del histórico del sistema (cursos $\rightarrow$
+asignaturas $\rightarrow$ exámenes $\rightarrow$ instancias) y la exportación de datos en
+formatos estándar. La exportación de notas en formato compatible con sistemas de actas
+institucionales permite la integración con los flujos administrativos existentes.
+
+\begin{functional}
+
+    % RF-14.1 ---------------------------------------------------------------
+    \item \textbf{Exportación de notas en formato institucional.}
+    \label{rf:export:institutional}
+    El sistema debe permitir al coordinador exportar las calificaciones de un examen en un
+    formato \acs{csv} compatible con los sistemas institucionales de actas.
+
+    \textbf{Entrada:} petición GET al recurso de exportación de notas del examen con
+    parámetro de formato.
+
+    \textbf{Proceso:} el sistema genera un fichero \acs{csv} con la estructura adecuada
+    (columnas para identificador del alumno, nombre, grupo, calificación). Se incluyen las
+    calificaciones de todas las instancias del examen cuyo estado sea \texttt{PUBLISHED} o
+    posterior. El formato de columnas es configurable por organización para adaptarse a las
+    especificaciones de cada institución.
+
+    \textbf{Salida:} respuesta con el fichero \acs{csv} como descarga.
+
+    % RF-14.2 ---------------------------------------------------------------
+    \item \textbf{Datos completos de calificaciones.} \label{rf:export:raw}
+    El sistema debe permitir obtener los datos completos de calificaciones de un examen en
+    formato estructurado.
+
+    \textbf{Entrada:} petición GET al recurso de calificaciones del examen.
+
+    \textbf{Proceso:} el sistema devuelve los datos completos de cada instancia: alumno
+    (\acs{nia}, nombre), grupo, modelo, calificación de cada problema y nota total. Estos
+    datos permiten al \dfn{frontend} generar estadísticas (por grupo, modelo, problema,
+    etc.) sin necesidad de lógica adicional en el \dfn{backend}.
+
+    \textbf{Salida:} respuesta con los datos en formato \acs{json}.
+
+    % RF-14.3 ---------------------------------------------------------------
+    \item \textbf{Búsqueda jerárquica por gestor.} \label{rf:export:hierarchical}
+    El sistema debe permitir al gestor explorar el histórico de su organización de forma
+    jerárquica: cursos $\rightarrow$ asignaturas $\rightarrow$ exámenes $\rightarrow$
+    instancias.
+
+    \textbf{Entrada:} petición GET a los recursos de asignaturas, exámenes o instancias con
+    parámetros de filtrado y el identificador del curso (activo o archivado).
+
+    \textbf{Proceso:} el sistema permite la navegación jerárquica dentro de la organización
+    del gestor: al consultar una asignatura se listan sus exámenes; al consultar un examen
+    se listan sus instancias. Se soporta la navegación entre cursos archivados. Los
+    resultados son de solo lectura para datos de cursos archivados.
+
+    \textbf{Salida:} respuesta con los datos del nivel consultado, con enlaces a los niveles
+    inferiores.
+
+    % RF-14.4 ---------------------------------------------------------------
+    \item \textbf{Filtros avanzados sobre entidades.} \label{rf:export:filters}
+    El sistema debe soportar filtros avanzados en los listados de todas las entidades
+    principales.
+
+    \textbf{Entrada:} parámetros de filtrado en las peticiones GET a los recursos de
+    listado. Los filtros disponibles varían según la entidad: usuarios (nombre, estado),
+    asignaturas (nombre, código, cuatrimestre), exámenes (nombre, estado), instancias
+    (alumno, grupo, modelo, estado, \texttt{has\_issues}).
+
+    \textbf{Proceso:} el sistema aplica los filtros de forma combinable (AND) y devuelve los
+    resultados paginados. Se soporta búsqueda parcial por texto en campos de nombre.
+
+    \textbf{Salida:} respuesta con los resultados paginados y los metadatos de paginación.
+
+    % RF-14.5 ---------------------------------------------------------------
+    \item \textbf{Acceso a datos de cursos archivados.} \label{rf:export:archived}
+    El sistema debe garantizar que los datos de cursos archivados permanecen accesibles en
+    modo de solo lectura para los gestores de la organización.
+
+    \textbf{Entrada:} cualquier petición a recursos de un curso archivado.
+
+    \textbf{Proceso:} el sistema identifica que el curso del recurso solicitado está
+    archivado. Las operaciones de lectura se permiten con normalidad. Cualquier operación de
+    escritura se rechaza. Pueden coexistir múltiples cursos archivados accesibles
+    simultáneamente.
+
+    \textbf{Salida:} datos en modo lectura, o error \acs{http}~403 si se intenta una
+    escritura.
+
+\end{functional}

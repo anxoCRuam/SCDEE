@@ -1,0 +1,159 @@
+% chapters/requirements/rf_permissions.tex
+% RF-5: Permisos y autorización
+% ============================================================================
+
+\item \textbf{Permisos y autorización.} \label{rf:perms}
+El sistema de autorización opera en tres capas contextuales, eliminando el concepto de
+<<rol global>> rígido. Los permisos se derivan de: (1)~el \textit{flag}
+\texttt{is\_staff}, que otorga permisos de gestor a nivel de organización;
+(2)~la \texttt{SubjectMembership}, que define el rol (\texttt{COORDINATOR},
+\texttt{TEACHER}, \texttt{STUDENT}) y los permisos contextuales dentro de una asignatura
+concreta mediante un campo \acs{json} \texttt{permission\_overrides}; y (3)~las reglas de
+asignación de corrección (\texttt{AssignmentRule}), que restringen el acceso a instancias
+o problemas concretos. Cada petición se evalúa contra el contexto actual (organización,
+curso, asignatura) para determinar si el usuario tiene autorización. La
+\cref{tab:perms_defaults} recoge los permisos contextuales y sus valores por defecto según
+el rol.
+
+\begin{table}{tab:perms_defaults}{Permisos contextuales y valores por defecto según rol}
+    \begin{tabular}{lccc}
+        \hline
+        \textbf{Permiso} & \textbf{COORD} & \textbf{TEACHER} & \textbf{STUDENT} \\
+        \hline
+        \texttt{can\_create\_exams}       & Sí & No & No \\
+        \texttt{can\_manage\_models}      & Sí & No & No \\
+        \texttt{can\_manage\_call\_list}  & Sí & No & No \\
+        \texttt{can\_assign\_correctors}  & Sí & No & No \\
+        \texttt{can\_grade}               & Sí & Sí & No \\
+        \texttt{can\_annotate}            & Sí & Sí & No \\
+        \texttt{can\_resolve\_issues}     & Sí & No & No \\
+        \texttt{can\_publish\_grades}     & Sí & No & No \\
+        \texttt{can\_manage\_reviews}     & Sí & No & No \\
+        \texttt{can\_view\_all\_instances} & Sí & No & No \\
+        \texttt{can\_export\_grades}      & Sí & No & No \\
+        \texttt{can\_manage\_members}     & Sí & No & No \\
+        \texttt{can\_delegate\_perms}     & Sí & No & No \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{functional}
+
+    % RF-5.1 ----------------------------------------------------------------
+    \item \textbf{Permisos de gestor (\texttt{is\_staff}).} \label{rf:perms:staff}
+    El sistema debe otorgar automáticamente permisos de administración a los usuarios con
+    \texttt{is\_staff=True}.
+
+    \textbf{Entrada:} evento interno disparado al establecer \texttt{is\_staff=True} en un
+    usuario.
+
+    \textbf{Proceso:} un usuario con \texttt{is\_staff=True} obtiene permisos para
+    gestionar usuarios, cursos, configuración y auditoría dentro de su organización. Tiene
+    acceso de lectura y escritura a todas las asignaturas de su organización sin necesidad
+    de una \texttt{SubjectMembership} explícita.
+
+    \textbf{Salida:} el usuario puede realizar operaciones de gestor.
+
+    % RF-5.2 ----------------------------------------------------------------
+    \item \textbf{Asignación de permisos contextuales por defecto.}
+    \label{rf:perms:defaults}
+    El sistema debe asignar automáticamente un conjunto de permisos por defecto al crear una
+    \texttt{SubjectMembership}, basado en el rol.
+
+    \textbf{Entrada:} creación de una \texttt{SubjectMembership} con un rol
+    (\texttt{COORDINATOR}, \texttt{TEACHER} o \texttt{STUDENT}).
+
+    \textbf{Proceso:} el sistema inicializa el campo \texttt{permission\_overrides} como un
+    diccionario vacío. Internamente, una función
+    \texttt{get\_effective\_permissions(membership)} combina los permisos base del rol
+    (véase \cref{tab:perms_defaults}) con las anulaciones en
+    \texttt{permission\_overrides}. Los permisos base por defecto de cada rol se obtienen de
+    la configuración de la organización (véase \cref{rf:config:default_perms}), lo que
+    permite a cada organización adaptar los valores iniciales. Los permisos del rol
+    \texttt{STUDENT} son fijos y no admiten \texttt{permission\_overrides} individuales;
+    las restricciones de acceso del estudiante se configuran a nivel de examen (véase
+    \cref{rf:exams:student_perms}).
+
+    \textbf{Salida:} la \texttt{SubjectMembership} queda creada con los permisos efectivos
+    correspondientes.
+
+    % RF-5.3 ----------------------------------------------------------------
+    \item \textbf{Modificación de permisos contextuales.}
+    \label{rf:perms:override}
+    El sistema debe permitir al coordinador de una asignatura modificar los permisos de un
+    profesor en esa asignatura, añadiendo o eliminando permisos específicos.
+
+    \textbf{Entrada:} petición PATCH al recurso de la \texttt{SubjectMembership} con un
+    objeto \acs{json} de permisos a modificar (por ejemplo,
+    \texttt{\{can\_create\_exams: true\}}).
+
+    \textbf{Proceso:} el sistema verifica que el usuario que modifica es el coordinador de
+    la asignatura. Fusiona el \acs{json} recibido con el
+    \texttt{permission\_overrides} existente. Solo se pueden otorgar permisos que el
+    otorgante posee (véase \cref{rf:perms:delegation}). Se registra el cambio en el
+    \textit{log} de auditoría.
+
+    \textbf{Salida:} respuesta con la lista actualizada de permisos efectivos del profesor
+    en esa asignatura.
+
+    % RF-5.4 ----------------------------------------------------------------
+    \item \textbf{Revocación de permisos contextuales.} \label{rf:perms:revoke}
+    El sistema debe permitir al coordinador revocar permisos contextuales previamente
+    otorgados a un profesor, restaurando los valores por defecto.
+
+    \textbf{Entrada:} petición PATCH al recurso de la \texttt{SubjectMembership} con los
+    permisos a revocar (por ejemplo, \texttt{\{can\_create\_exams: null\}}). Un valor
+    \texttt{null} elimina la anulación y restaura el permiso por defecto del rol.
+
+    \textbf{Proceso:} el sistema elimina las claves indicadas del campo
+    \texttt{permission\_overrides}.
+
+    \textbf{Salida:} respuesta con la lista actualizada de permisos efectivos.
+
+    % RF-5.5 ----------------------------------------------------------------
+    \item \textbf{Consulta de permisos efectivos.} \label{rf:perms:query}
+    El sistema debe permitir consultar los permisos efectivos de un usuario en una
+    asignatura concreta.
+
+    \textbf{Entrada:} petición GET al recurso de permisos de la \texttt{SubjectMembership}.
+
+    \textbf{Proceso:} el sistema calcula los permisos efectivos combinando: el \textit{flag}
+    \texttt{is\_staff}, los permisos base del rol en \texttt{SubjectMembership} y las
+    anulaciones en \texttt{permission\_overrides}.
+
+    \textbf{Salida:} respuesta con la lista de permisos efectivos del usuario, indicando la
+    fuente de cada uno (base o anulación).
+
+    % RF-5.6 ----------------------------------------------------------------
+    \item \textbf{Restricción de delegación.} \label{rf:perms:delegation}
+    El sistema debe impedir que un usuario otorgue permisos que no posee.
+
+    \textbf{Entrada:} cualquier petición de modificación de \texttt{permission\_overrides}.
+
+    \textbf{Proceso:} antes de aplicar la asignación, el sistema compara la lista de
+    permisos solicitados con los permisos efectivos del otorgante. Si algún permiso
+    solicitado no está en los permisos del otorgante, la operación se rechaza íntegramente.
+
+    \textbf{Salida:} en caso de intento de exceso, respuesta de error con código
+    \acs{http}~403.
+
+    % RF-5.7 ----------------------------------------------------------------
+    \item \textbf{Permisos de corrección (capa \texttt{AssignmentRule}).}
+    \label{rf:perms:correction}
+    El sistema debe restringir el acceso a las instancias de examen según las reglas de
+    asignación de corrección.
+
+    \textbf{Entrada:} cualquier petición de acceso a una instancia de examen (consulta de
+    \acs{pdf}, anotaciones, calificaciones).
+
+    \textbf{Proceso:} el sistema verifica que el usuario que accede es el coordinador, un
+    gestor o un corrector asignado a esa instancia o problema (mediante
+    \texttt{AssignmentRule}). Los estudiantes solo acceden a su propia instancia y solo
+    durante los períodos permitidos (publicación, revisión), limitados a los permisos
+    configurados en el examen. Un profesor que no es corrector de una instancia puede
+    consultar sus atributos pero no el \acs{pdf}.
+
+    \textbf{Salida:} acceso concedido si se cumplen las condiciones; en caso contrario,
+    respuesta de error con código \acs{http}~403.
+
+\end{functional}

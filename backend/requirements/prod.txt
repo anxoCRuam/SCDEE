@@ -1,0 +1,6 @@
+-r base.txt
+
+# ============================================================
+# Production monitoring (optional, add when needed)
+# ============================================================
+# sentry-sdk>=2.0,<3.0             # Error tracking

@@ -1,0 +1,17 @@
+codes/coverage_report.txt
+TODO: Sustituir por la salida real de pytest --cov.
+Placeholder para el apéndice de resultados detallados.
+
+---------- coverage: ... ----------
+Name                              Stmts   Miss  Cover
+------------------------------------------------------
+authentication/backends.py           45      5    89%
+authentication/plugins/jwt.py        32      3    91%
+authentication/plugins/session.py    28      4    86%
+exams/models.py                      98     12    88%
+exams/state_machine.py               67      8    88%
+permissions/evaluator.py             54      6    89%
+ocr/pipeline.py                      73     15    79%
+ocr/similarity.py                    41      5    88%
+------------------------------------------------------
+TOTAL                               438     58    87%
