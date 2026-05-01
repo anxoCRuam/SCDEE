@@ -12,6 +12,8 @@ from typing import Any
 
 from django.contrib.auth.models import BaseUserManager
 
+from apps.core.tenancy.tenant_context import get_current_organization_id
+
 
 class UserManager(BaseUserManager):
     """Manager for the custom User model.
@@ -19,6 +21,14 @@ class UserManager(BaseUserManager):
     Handles email normalization and delegates password hashing
     to Django's built-in mechanisms (Argon2 by default, see settings).
     """
+
+    def get_queryset(self):
+        """Return a queryset scoped to the current organization context."""
+        qs = super().get_queryset()
+        org_id = get_current_organization_id()
+        if org_id is not None:
+            return qs.filter(organization_id=org_id)
+        return qs
 
     def create_user(
         self,

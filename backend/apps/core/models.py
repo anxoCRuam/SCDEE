@@ -18,7 +18,7 @@ import uuid
 
 from django.db import models
 
-from apps.core.managers import TenantManager, UnfilteredManager
+from apps.core.tenancy.managers import TenantManager, UnfilteredManager
 
 
 class UUIDModel(models.Model):

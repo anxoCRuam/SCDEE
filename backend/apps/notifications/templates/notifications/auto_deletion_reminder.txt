@@ -1,0 +1,12 @@
+{% load i18n %}{% blocktrans with name=user.first_name %}Hi {{ name }},{% endblocktrans %}
+
+{% blocktrans count cnt=days_until_deletion %}In {{ cnt }} day SCDEE will run an automatic deletion of archived course data older than the configured retention period.{% plural %}In {{ cnt }} days SCDEE will run an automatic deletion of archived course data older than the configured retention period.{% endblocktrans %}
+{% if exam_count %}
+{% blocktrans count cnt=exam_count %}{{ cnt }} exam will be permanently removed, along with its instances and pages.{% plural %}{{ cnt }} exams will be permanently removed, along with their instances and pages.{% endblocktrans %}
+{% endif %}
+
+{% trans "Audit log entries are preserved." %}
+{% trans "Sign in to SCDEE if you wish to export data before the deletion runs." %}
+
+{% trans "Best regards" %},
+SCDEE

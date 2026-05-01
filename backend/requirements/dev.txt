@@ -27,3 +27,8 @@ djangorestframework-stubs>=3.15,<4.0  # DRF type stubs
 # ============================================================
 ipdb>=0.13,<1.0                    # Interactive debugger
 django-debug-toolbar>=4.4,<5.0     # Debug toolbar (optional, browser-based)
+
+# ============================================================
+# Load testing (RNF-2, Phase 12.6)
+# ============================================================
+locust>=2.30,<3.0                  # Load profile runner (tests/load/locustfile.py)

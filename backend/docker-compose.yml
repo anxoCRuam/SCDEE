@@ -36,7 +36,7 @@ services:
       redis:
         condition: service_healthy
       minio:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
   # ── PostgreSQL database ────────────────────────────────────
@@ -91,11 +91,16 @@ services:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
     command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   # ── Celery worker ──────────────────────────────────────────
   # Processes async tasks from all three queues:
-  #   default, ocr (RF-9), notifications (RF-13).
+  #   default, recognition (RF-9), notifications (RF-13).
   # In production, you'd run separate workers per queue.
   celery_worker:
     build:
@@ -104,7 +109,7 @@ services:
     command: >
       celery -A scdee worker
       --loglevel=info
-      --queues=default,ocr,notifications
+      --queues=default,recognition,notifications
       --concurrency=2
     volumes:
       - .:/app
@@ -115,6 +120,8 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     restart: unless-stopped
 
@@ -150,6 +157,42 @@ services:
       - "8025:8025"   # Web UI
       - "1025:1025"   # SMTP server
     restart: unless-stopped
+
+  # EXTRA SERVICES FOR TESTING (not part of core RNF-3 deployment)
+  # Visualización PostgreSQL
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    profiles: [monitoring]
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@scdee.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # Visualización Redis
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    profiles: [monitoring]
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: "CacheDjango:redis:6379:0,CeleryBroker:redis:6379:1,CeleryResultBackend:redis:6379:2"
+    depends_on:
+      - redis
+
+  # Monitor Celery
+  flower:
+    image: mher/flower:latest
+    profiles: [monitoring]
+    ports:
+      - "5555:5555"
+    command: celery --broker=redis://redis:6379/1 flower --port=5555
+    depends_on:
+      - redis
+      - celery_worker
 
 # ── Named volumes ────────────────────────────────────────────
 # Persist data across container restarts. Delete with:

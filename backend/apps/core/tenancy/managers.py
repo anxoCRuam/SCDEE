@@ -19,18 +19,7 @@ References: RNF-9, RNF-13
 
 from django.db import models
 
-from apps.core.tenant_context import get_current_organization_id
-
-
-class TenantQuerySet(models.QuerySet):
-    """QuerySet that auto-filters by the current organization."""
-
-    def _filter_by_tenant(self) -> models.QuerySet:
-        """Apply tenant filter if an organization context is active."""
-        org_id = get_current_organization_id()
-        if org_id is not None:
-            return super().filter(organization_id=org_id)
-        return super().all()
+from apps.core.tenancy.tenant_context import get_current_organization_id
 
 
 class TenantManager(models.Manager):
@@ -62,5 +51,3 @@ class UnfilteredManager(models.Manager):
         MyModel.unfiltered.all()       # No tenant filter
         MyModel.unfiltered.filter(...)  # Explicit filters only
     """
-
-    pass

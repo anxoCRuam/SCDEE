@@ -9,12 +9,7 @@ COMPOSE = docker compose -f backend/docker-compose.yml
 API_EXEC = $(COMPOSE) exec api
 API_RUN = $(COMPOSE) run --rm api
 
-.PHONY: help setup build up down restart logs \
-        migrate makemigrations reset-db shell dbshell \
-        test test-cov test-watch lint format typecheck fix \
-        createsuperuser collectstatic keygen \
-        check ci clean prune reset \
-        logs-api logs-worker logs-beat logs-db logs-redis logs-minio
+.PHONY: help
 
 # ── Docker lifecycle ─────────────────────────────────────────
 
@@ -23,31 +18,46 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo "\nMAIN:$(NC)"
 	@echo "  make keygen     # Only needed if you don't have keys in .env file"
+	@echo "  make build      # Build images"
 	@echo "  make setup      # First time: configure everything"
 	@echo "  make up         # Start services"
 	@echo "  make check      # Run tests + lint + typecheck"
 	@echo "  make reset      # Reset project (delete everything)"
 
-setup: ## 🚀 Initial setup (FIRST TIME)
-	@make keygen
+setup: ## Initial setup (FIRST TIME)
 	@make build
 	@make up
 	@sleep 5
+	@make keygen
+	@read -p "Done? (y/n): " confirm && [ "$$confirm" = "y" ]
+	@make down
+	@make build
+	@make up
 	@make makemigrations
 	@make migrate
-	@$(API_EXEC) python manage.py create_default_groups
 	@make createsuperuser
+	@make sftp-watcher
 
 
 # -- Docker lifecycle ------------------------------------------------
 build: ## Build all containers
 	$(COMPOSE) build
 
-up: ## Start all services in the background
+up: up-simple up-dev
+
+up-simple:
 	$(COMPOSE) up -d
 
-down: ## Stop all services
+up-dev:
+	$(COMPOSE) --profile monitoring up -d
+
+down: down-simple down-dev
+
+down-simple:
 	$(COMPOSE) down
+
+down-dev:
+	$(COMPOSE) --profile monitoring down
 
 down-volumes: ## Stop all services and remove volumes (DANGER: deletes ALL data)
 	$(COMPOSE) down -v
@@ -81,11 +91,14 @@ logs-minio: ## Tail logs (MinIO only)
 
 # -- Django management -----------------------------------------------
 
-migrate: ## Run database migrations
+migrate: makemigrations ## Run database migrations
 	$(API_EXEC) python manage.py migrate
 
 makemigrations: ## Generate new migrations
 	$(API_EXEC) python manage.py makemigrations
+
+sftp-watcher:
+	$(API_EXEC) python manage.py sftp_watcher --poll-interval 5
 
 reset-db: ## Reset database (DANGER: deletes ALL data)
 	$(COMPOSE) down -v; \
@@ -134,12 +147,19 @@ check: ## Execute all checks (lint + typecheck + tests)
 	@make test
 
 # -- Keygen ----------------------------------------------------
-keygen: ## Generate DJANGO_SECRET_KEY & ENCRYPTION_MASTER_KEY
+keygen: ## Generate DJANGO_SECRET_KEY & ENCRYPTION_MASTER_KEY (run inside container)
 	@echo "# ===================================="
 	@echo "# Copy these into your .env file:"
-	@echo "DJANGO_SECRET_KEY=$$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')"
-	@echo "ENCRYPTION_MASTER_KEY=$$(python -c 'import secrets; print(secrets.token_hex(32))')"
+	@$(API_EXEC) python -c \
+		"from django.core.management.utils import get_random_secret_key; \
+		 import secrets; \
+		 print('DJANGO_SECRET_KEY=' + get_random_secret_key()); \
+		 print('ENCRYPTION_MASTER_KEY=' + secrets.token_hex(32))"
 	@echo "# ===================================="
+
+# -- Create bucket ------------------------------------------------
+setup-finish: ## Create the default MinIO bucket (requires api container up)
+	$(API_EXEC) python manage.py setup_infrastructure
 
 # -- Cleanup ---------------------------------------------------
 prune: ## Clean up unused Docker resources (containers, images, volumes)
@@ -147,6 +167,9 @@ prune: ## Clean up unused Docker resources (containers, images, volumes)
 	docker volume prune -f
 
 clean: ## Completely clean up all Docker resources (DANGER: deletes ALL containers, images, volumes)
+	$(COMPOSE) down --rmi all -v
+
+destroy: ## Completely clean up all Docker resources (DANGER: deletes ALL containers, images, volumes)
 	docker stop $(shell docker ps -aq) 2>/dev/null || true; \
 	docker rm -f $(shell docker ps -aq) 2>/dev/null || true; \
 	docker rmi -f $(shell docker images -q) 2>/dev/null || true; \

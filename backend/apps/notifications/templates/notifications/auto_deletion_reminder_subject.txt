@@ -1,0 +1,1 @@
+{% load i18n %}{% trans "SCDEE — Upcoming automatic deletion of archived data" %}

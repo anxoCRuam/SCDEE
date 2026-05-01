@@ -16,10 +16,21 @@ FROM python:3.12-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# System dependencies required by psycopg (PostgreSQL) and Pillow (images).
+# System dependencies:
+#   - build-essential, libpq-dev: psycopg (PostgreSQL).
+#   - libzbar0: native library required by pyzbar to decode QR codes
+#     (RF-9.3) and exercised by tests/integration of the instrumented
+#     PDF pipeline.
+#   - poppler-utils: provides pdftoppm/pdftocairo, needed by pdf2image
+#     to rasterise the generated instrumented PDFs back to images for
+#     QR decoding in the end-to-end test.
+#   - tesseract-ocr: optional pytesseract OCR engine plugin (RF-9.9).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         libpq-dev \
+        libzbar0 \
+        poppler-utils \
+        tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security.

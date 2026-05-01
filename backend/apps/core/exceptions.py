@@ -49,19 +49,7 @@ _STATUS_CODE_MAP: dict[int, str] = {
 
 
 def api_exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:
-    """Convert any exception into a uniform JSON error response.
-
-    This handler is registered as DRF's DEFAULT_EXCEPTION_HANDLER.
-    It catches both DRF exceptions and Django's built-in exceptions.
-
-    Args:
-        exc: The exception that was raised.
-        context: Dict with 'view', 'args', 'kwargs', 'request'.
-
-    Returns:
-        Response with symbolic error codes, or None for unhandled exceptions.
-    """
-    # Convert Django exceptions to DRF equivalents first.
+    # Convertir excepciones Django a DRF primero
     if isinstance(exc, Http404):
         exc = APIException(detail="Not found", code="not_found")
         exc.status_code = status.HTTP_404_NOT_FOUND
@@ -69,42 +57,55 @@ def api_exception_handler(exc: Exception, context: dict[str, Any]) -> Response |
         exc = APIException(detail="Permission denied", code="permission_denied")
         exc.status_code = status.HTTP_403_FORBIDDEN
     elif isinstance(exc, DjangoValidationError):
-        # Django's ValidationError → DRF's ValidationError
         exc = ValidationError(
             detail=exc.message_dict if hasattr(exc, "message_dict") else exc.messages
         )
 
-    # Let DRF handle the exception (sets response, logs, etc.)
+    # Dejar que DRF construya la respuesta inicial
     response = drf_exception_handler(exc, context)
 
     if response is None:
-        # Unhandled exception — this is a 500. Log it and return generic error.
-        logger.exception(
-            "Unhandled exception in %s",
-            context.get("view", "unknown"),
-        )
+        # Excepción no manejada → 500 genérico
+        logger.exception("Unhandled exception in %s", context.get("view", "unknown"))
         return Response(
             {"error_code": "INTERNAL_ERROR"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    # Transform the DRF response into our uniform format.
-    error_code = _STATUS_CODE_MAP.get(response.status_code, f"ERROR_{response.status_code}")
+    # Extraer el código de error semántico si está disponible
+    if isinstance(exc, APIException):
+        # exc.detail puede ser un string o un dict (ValidationError)
+        if isinstance(exc.detail, str):
+            possible_code = exc.detail
+        else:
+            possible_code = getattr(exc, "code", "") or ""
+        # Si tenemos un código significativo y no es el genérico "error", lo usamos.
+        # Lo normalizamos a mayúsculas y guiones bajos.
+        if possible_code and possible_code.lower() not in ("error", "invalid"):
+            error_code = possible_code.upper().replace(" ", "_")
+        else:
+            error_code = _STATUS_CODE_MAP.get(
+                response.status_code, f"ERROR_{response.status_code}"
+            )
+    else:
+        error_code = _STATUS_CODE_MAP.get(response.status_code, f"ERROR_{response.status_code}")
 
+    # Formatear la respuesta según el tipo de error
     if isinstance(response.data, dict) and response.status_code == 400:
-        # Validation errors: map field-level details.
+        # Error de validación con campos
         errors = _normalize_validation_errors(response.data)
         response.data = {
-            "error_code": error_code,
+            "error_code": "VALIDATION_ERROR",
             "errors": errors,
         }
     elif isinstance(response.data, list):
-        # Non-field validation errors (list of messages).
+        # Errores no asociados a un campo (lista de mensajes)
         response.data = {
             "error_code": error_code,
             "errors": {"non_field_errors": response.data},
         }
     else:
+        # Error simple con código semántico
         response.data = {"error_code": error_code}
 
     return response

@@ -1,0 +1,13 @@
+{% load i18n %}{% blocktrans with name=user.first_name %}Hi {{ name }},{% endblocktrans %}
+
+{% blocktrans with exam=exam_name %}One or more incidents have been detected during page ingestion for the exam "{{ exam }}":{% endblocktrans %}
+
+{% if detail %}- {{ detail }}{% endif %}
+{% if orphan_pages %}- {% blocktrans count cnt=orphan_pages %}{{ cnt }} orphan page{% plural %}{{ cnt }} orphan pages{% endblocktrans %}{% endif %}
+{% if missing_pages %}- {% blocktrans count cnt=missing_pages %}{{ cnt }} missing page{% plural %}{{ cnt }} missing pages{% endblocktrans %}{% endif %}
+{% if qr_errors %}- {% blocktrans count cnt=qr_errors %}{{ cnt }} unreadable QR{% plural %}{{ cnt }} unreadable QR codes{% endblocktrans %}{% endif %}
+
+{% trans "Sign in to SCDEE to inspect the incidents panel and resolve them." %}
+
+{% trans "Best regards" %},
+SCDEE

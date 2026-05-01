@@ -1,0 +1,14 @@
+{% load i18n %}<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'es' }}">
+  <body style="font-family: sans-serif; color: #222;">
+    <p>{% blocktrans with name=first_name %}Hi {{ name }},{% endblocktrans %}</p>
+    <p>{% blocktrans %}Your account on the <strong>Digital Exam Correction System (SCDEE)</strong> has been created.{% endblocktrans %}</p>
+    <p>
+      <strong>{% trans "Login credentials" %}:</strong><br>
+      {% trans "Email" %}: <code>{{ user_email }}</code><br>
+      {% trans "Password" %}: <code>{{ raw_password }}</code>
+    </p>
+    <p>{% trans "We recommend that you change your password on first login." %}</p>
+    <p>{% trans "Best regards" %},<br>SCDEE</p>
+  </body>
+</html>

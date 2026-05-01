@@ -1,0 +1,11 @@
+{% load i18n %}{% blocktrans with name=user.first_name %}Hi {{ name }},{% endblocktrans %}
+
+{% blocktrans with exam=exam_name %}You have been assigned as a grader for the exam "{{ exam }}".{% endblocktrans %}
+{% if instance_count %}
+{% blocktrans count cnt=instance_count %}{{ cnt }} instance is awaiting your grading.{% plural %}{{ cnt }} instances are awaiting your grading.{% endblocktrans %}
+{% endif %}
+
+{% trans "Sign in to SCDEE to start grading." %}
+
+{% trans "Best regards" %},
+SCDEE

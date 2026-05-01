@@ -27,14 +27,21 @@ from django.conf import settings
 from django.db import models
 
 
-class AuditLogManager(models.Manager):
-    """Custom manager that prevents bulk update/delete operations."""
+class AuditLogQuerySet(models.QuerySet):
+    """QuerySet inmutable: bloquea update, delete y bulk_update."""
 
     def update(self, **kwargs):
-        raise PermissionError("Audit log entries cannot be updated.")
+        raise PermissionError("Audit log entries are immutable.")
 
     def delete(self):
         raise PermissionError("Audit log entries cannot be deleted.")
+
+    def bulk_update(self, objs, fields, **kwargs):
+        raise PermissionError("Audit log entries are immutable.")
+
+
+class AuditLogManager(models.Manager.from_queryset(AuditLogQuerySet)):
+    use_for_related_fields = True
 
 
 class AuditLog(models.Model):

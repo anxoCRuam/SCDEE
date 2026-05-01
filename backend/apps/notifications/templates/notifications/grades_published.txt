@@ -1,0 +1,8 @@
+{% load i18n %}{% blocktrans with name=user.first_name %}Hi {{ name }},{% endblocktrans %}
+
+{% blocktrans with exam=exam_name %}The grades for the exam "{{ exam }}" have been published.{% endblocktrans %}
+
+{% trans "You can consult your grade by signing in to SCDEE." %}
+
+{% trans "Best regards" %},
+SCDEE

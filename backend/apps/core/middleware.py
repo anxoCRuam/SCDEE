@@ -2,43 +2,38 @@
 Multi-tenant middleware for automatic organization-scoped queries.
 
 This middleware sits after authentication in the middleware chain.
-For each request, it:
-1. Checks if the user is authenticated.
-2. Extracts the user's organization_id.
-3. Stores it in thread-local context (tenant_context).
-4. Clears it after the response, regardless of success or error.
+1. Clears org_id after the response, regardless of success or error.
 
-Downstream, TenantManager reads this context to auto-filter queries,
-ensuring that users of one organization can never see data from another.
+    Exemptions:
+        - Unauthenticated requests: context stays None (public endpoints).
+        - Superadmin users: context stays None (cross-org access).
+        - Celery tasks: no middleware runs; tasks must set context explicitly.
 
-Exemptions:
-    - Unauthenticated requests: context stays None (public endpoints).
-    - Superadmin users: context stays None (cross-org access).
-    - Celery tasks: no middleware runs; tasks must set context explicitly.
+2. AntiCacheMiddleware: adds no-store headers to sensitive responses (RF-16.7)
 
-References: RNF-9, RNF-13, Paso 0.4
+References: RNF-13, RNF-16.7
 """
 
 from collections.abc import Callable
 
 from django.http import HttpRequest, HttpResponse
 
-from apps.core.tenant_context import (
-    clear_current_organization_id,
-    set_current_organization_id,
-)
+from apps.core.tenancy.tenant_context import clear_current_organization_id
 
 
-class OrganizationMiddleware:
+class ClearTenantContextMiddleware:
     """Inject organization_id into thread-local context per request."""
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        organization_id = self._resolve_organization_id(request)
-        set_current_organization_id(organization_id)
-
+        # NOTE: tenant context is SET by JWTAuthentication.authenticate()
+        # (apps/accounts/backends.py), which is the first place where the
+        # authenticated user is actually available. Django middleware runs
+        # before DRF authentication, so request.user is AnonymousUser here.
+        # This middleware is only responsible for CLEARING the context after
+        # each response to prevent thread-local leakage between requests.
         try:
             response = self.get_response(request)
         finally:
@@ -47,24 +42,27 @@ class OrganizationMiddleware:
 
         return response
 
-    def _resolve_organization_id(self, request: HttpRequest):
-        """Extract organization_id from the authenticated user.
 
-        Returns None if:
-            - The user is not authenticated (anonymous).
-            - The user is a superadmin (needs cross-org access).
-            - The user has no organization (shouldn't happen, but defensive).
+# ── Anti-cache middleware (RF-16.7) ──────────────────────────
 
-        Returns:
-            UUID of the organization, or None.
-        """
-        user = getattr(request, "user", None)
 
-        if user is None or not getattr(user, "is_authenticated", False):
-            return None
+class AntiCacheMiddleware:
+    """Add no-store/no-cache headers to responses with sensitive data.
 
-        # Superadmins operate across organizations — no tenant filter.
-        if getattr(user, "is_superadmin", False):
-            return None
+    Applied to all responses — the browser and proxies must not
+    cache API responses containing personal data, grades, or PDFs.
+    """
 
-        return getattr(user, "organization_id", None)
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        # Apply to all API responses.
+        if request.path.startswith("/api/"):
+            response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+            response["Pragma"] = "no-cache"
+            response["Expires"] = "0"
+
+        return response

@@ -1,0 +1,6 @@
+{% load i18n %}{% blocktrans with name=user.first_name %}Hi {{ name }},{% endblocktrans %}
+
+{{ message }}
+
+{% trans "Best regards" %},
+SCDEE

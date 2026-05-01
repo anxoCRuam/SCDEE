@@ -22,6 +22,8 @@ from django.contrib.auth.models import AbstractBaseUser
 from django.db import models
 
 from apps.accounts.managers import UserManager
+from apps.accounts.sso_models import OidcConfig, SamlConfig  # noqa: F401
+from apps.core.tenancy.managers import UnfilteredManager
 
 
 class User(AbstractBaseUser):
@@ -97,6 +99,7 @@ class User(AbstractBaseUser):
     REQUIRED_FIELDS = ["first_name", "last_name"]
 
     objects = UserManager()
+    unfiltered = UnfilteredManager()  # Bypass tenant filter (auth backend, superadmin ops).
 
     class Meta:
         constraints = [

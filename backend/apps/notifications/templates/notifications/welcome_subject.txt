@@ -1,0 +1,1 @@
+{% load i18n %}{% trans "SCDEE — Welcome, your account has been created" %}
