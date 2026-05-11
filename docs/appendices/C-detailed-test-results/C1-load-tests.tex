@@ -1,0 +1,63 @@
+Las pruebas de carga descritas en \cref{SEC:TEST-LOAD} se ejecutaron
+con Locust contra el \textit{endpoint} \texttt{/api/v1/} siguiendo los
+tres perfiles de carga que se detallan a continuación.
+
+\bigskip\noindent\textbf{Phase 1: ingesta sostenida.}
+
+El primer escenario simula una cabina de escaneo entregando páginas a
+través de la \acs{api} de ingesta a tasa constante. El sistema procesó
+14\,260 peticiones a 23,8 \textit{RPS} sostenidos sin errores durante
+diez minutos.
+
+\begin{figure}[Phase 1: throughput sostenido]%
+              {fig:cdetail-phase1-throughput}%
+              {Phase 1 (ingesta sostenida): tasa de peticiones a lo
+               largo del tiempo.}
+  \image{}{}{load_test/graphs/phase1/02_throughput_over_time}
+\end{figure}
+
+\bigskip\noindent\textbf{Phase 2: corrección concurrente.}
+
+El segundo escenario simula a un grupo de correctores anotando y
+calificando simultáneamente sobre una base de datos poblada. El sistema
+procesó cerca de 5\,900 peticiones de operaciones \acs{crud} sin
+errores, con latencias medianas entre 14 y 44 milisegundos.
+
+\begin{figure}[Phase 2: percentiles de latencia]%
+              {fig:cdetail-phase2-latency}%
+              {Phase 2 (corrección concurrente): percentiles de latencia
+               por \textit{endpoint}.}
+  \image{}{}{load_test/graphs/phase2/01_latency_percentiles}
+\end{figure}
+
+\begin{figure}[Phase 2: tasa de errores]%
+              {fig:cdetail-phase2-errors}%
+              {Phase 2 (corrección concurrente): tasa de errores a lo
+               largo del escenario.}
+  \image{}{}{load_test/graphs/phase2/03_error_rate}
+\end{figure}
+
+\bigskip\noindent\textbf{Phase 3: pico de publicación.}
+
+El tercer escenario reproduce la situación de mayor estrés:
+300 alumnos consultando y descargando sus exámenes simultáneamente tras
+la publicación de calificaciones. Bajo este perfil, los
+\textit{endpoints} ligeros mantienen el rendimiento pero
+\texttt{student/instance/download} presenta degradación: alrededor del
+21\,\% de errores \acs{http} 500 y latencias medianas de 24 segundos,
+lo que confirma el cuello de botella consistente con el uso de
+\texttt{runserver} en lugar de un servidor \acs{wsgi} dedicado.
+
+\begin{figure}[Phase 3: latencia frente a usuarios concurrentes]%
+              {fig:cdetail-phase3-latency}%
+              {Phase 3 (pico de publicación): evolución de la latencia
+               con el número de usuarios concurrentes.}
+  \image{}{}{load_test/graphs/phase3/05_latency_vs_users}
+\end{figure}
+
+\begin{figure}[Phase 3: errores frente a usuarios concurrentes]%
+              {fig:cdetail-phase3-errors}%
+              {Phase 3 (pico de publicación): aparición de errores con
+               el aumento de usuarios concurrentes.}
+  \image{}{}{load_test/graphs/phase3/06_errors_vs_users}
+\end{figure}

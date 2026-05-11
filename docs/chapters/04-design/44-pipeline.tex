@@ -1,0 +1,13 @@
+El \textit{pipeline} de ingesta es el flujo crítico que conecta el escáner
+físico con el modelo del dominio: convierte un fichero de imagen escaneado
+en un \texttt{ExamPage} enriquecido con datos estructurados (organización,
+examen, modelo, número de página, identidad del alumno, marcas en casillas)
+y lo asigna a la \texttt{ExamInstance} correspondiente, dejándola lista
+para la corrección. El SCDEE descompone este flujo en cuatro etapas
+claramente separadas: detección, procesamiento, reconocimiento y asignación.
+
+\begin{figure}[Pipeline de ingesta y reconocimiento]%
+              {fig:scdee-ocr-flow}%
+              {\textit{Pipeline} de ingesta y reconocimiento del SCDEE.}
+  \image{}{0.85\textheight}{mermaid/ocr_flow}
+\end{figure}

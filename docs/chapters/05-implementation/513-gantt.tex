@@ -1,0 +1,33 @@
+El cronograma del proyecto se proyectó sobre un horizonte de
+veinticuatro semanas (\cref{fig:scdee-gantt}). Dos hitos vertebran el
+calendario: la conclusión de la fase 0 (semana~2), que marca la
+disponibilidad de la arquitectura base, y la conclusión de la fase 6
+(semana~15), que marca el primer momento en que el sistema completa el
+flujo crítico desde la entrega física hasta la corrección. La fase 12,
+dedicada a seguridad y pruebas, no se ejecuta en bloque al final del
+proyecto sino transversalmente desde la semana~17, lo que permite
+endurecer el sistema de forma incremental a medida que las
+funcionalidades se completan.
+
+\begin{figure}[Diagrama de Gantt del proyecto]%
+              {fig:scdee-gantt}%
+              {Diagrama de Gantt del proyecto.}
+  \begin{gantt}{1}{24}
+    \taskbar[fase0]{Fase 0: Configuración base}{1}{2}\\
+    \taskbar[fase1]{Fase 1: Autenticación y organizaciones}{2}{6}\\
+    \taskbar[fase2]{Fase 2: Cursos académicos}{6}{7}\\
+    \taskbar[fase3]{Fase 3: Asignaturas y membresías}{7}{9}\\
+    \taskbar[fase4]{Fase 4: Exámenes y modelos}{8}{11}\\
+    \taskbar[fase5]{Fase 5: Instancias y corrección}{10}{15}\\
+    \taskbar[fase6]{Fase 6: Ingesta y reconocimiento}{13}{15}\\
+    \taskbar[fase7]{Fase 7: Anotaciones}{15}{16}\\
+    \taskbar[fase8]{Fase 8: Revisiones}{16}{18}\\
+    \taskbar[fase9]{Fase 9: Notificaciones}{18}{19}\\
+    \taskbar[fase10]{Fase 10: Exportación y búsqueda}{19}{21}\\
+    \taskbar[fase11]{Fase 11: Mantenimiento}{21}{22}\\
+    \taskbar[fase12]{Fase 12: Seguridad y pruebas}{17}{23}\\
+    \taskbar[fase13]{Fase 13: SSO y despliegue}{23}{24}\\
+    \milestone[h1]{Arquitectura base}{2}\\
+    \milestone[h2]{Pipeline operativo}{15}
+  \end{gantt}
+\end{figure}

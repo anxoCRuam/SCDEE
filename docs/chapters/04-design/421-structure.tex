@@ -1,0 +1,31 @@
+Todas las entidades del SCDEE heredan de una jerarquía de tres clases
+abstractas que aporta una base homogénea:
+
+\begin{itemize}
+  \item \texttt{UUIDModel} define un identificador primario \acs{uuid}
+  v4. Frente al uso de enteros autoincrementales, los \acsp{uuid} evitan
+  filtraciones de información (un identificador secuencial revela el
+  número total de registros y el orden temporal de creación), son
+  globalmente únicos a través de instancias y bases de datos, y son
+  seguros frente a colisiones en escenarios de escalado horizontal.
+
+  \item \texttt{TimestampedModel} extiende lo anterior con dos campos
+  automáticos: \texttt{created\_at} (fijado en el \texttt{INSERT} y
+  nunca modificado) y \texttt{updated\_at} (refrescado en cada
+  \texttt{UPDATE}). Estos campos proporcionan una traza de auditoría
+  implícita complementaria al log explícito
+  (\cref{rf:security:audit-log}).
+
+  \item \texttt{OrganizationOwnedModel} añade la clave foránea
+  \texttt{organization} y dos \textit{managers}: \texttt{objects}
+  (filtrado por organización mediante \texttt{TenantManager}) y
+  \texttt{unfiltered} (sin filtro, para uso del superadministrador,
+  tareas asíncronas y migraciones). La gran mayoría de modelos de
+  negocio del SCDEE hereda de esta clase.
+\end{itemize}
+
+Las únicas excepciones a la herencia de \texttt{OrganizationOwnedModel}
+son las entidades transversales del sistema: la propia
+\texttt{Organization}, que es el contenedor multi-tenant, y
+\texttt{AuditLog}, que cubre eventos cross-organización del
+superadministrador.

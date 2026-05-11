@@ -7,12 +7,12 @@ automatic discovery of task modules in all installed apps.
 
 Queue architecture:
     - default:       General-purpose tasks
-    - ocr:           CPU-intensive OCR processing (RF-9.4)
+    - recognition:   CPU-intensive recognition processing (RF-9.4)
     - notifications:  Email sending and notification dispatch (RF-13.2)
 
 Workers can be started per-queue for workload isolation:
     celery -A scdee worker -Q default -c 4
-    celery -A scdee worker -Q ocr -c 2
+    celery -A scdee worker -Q recognition -c 2
     celery -A scdee worker -Q notifications -c 2
 """
 

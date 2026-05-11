@@ -1,0 +1,45 @@
+% =============================================================================
+%  Metadatos del documento
+% =============================================================================
+%  Variables del preámbulo de la plantilla tfgtfmthesisuam.
+% =============================================================================
+
+% --- Identificación académica ---------------------------------------------------
+\title{Backend de Sistema de Corrección Digital de Exámenes Escritos} % TODO ¿Título OK?
+\author{Anxo Canay Reguera}
+\advisor{Eloy Anguiano Rey}
+\levelin{Grado en Ingeniería Informática}
+\copyrightdate{Mayo de 2026}
+
+
+% --- Datos para portada y copyright -------------------------------------------
+\coverdata{%
+  Escuela Politécnica Superior\\
+  Universidad Autónoma de Madrid\\
+  C\textbackslash\ Francisco Tomás y Valiente nº 11%
+}
+
+
+% --- Ficheros de las secciones preliminares -----------------------------------
+\resumenfile{front-matter/resumen}
+\abstractfile{front-matter/abstract}
+\ackfile{front-matter/acknowledgements}
+
+% --- Directorios de recursos --------------------------------------------------
+\graphicsdir{files}
+\logosdir{logos}
+\codesdir{codes}
+\datadir{data}
+
+
+% --- Bibliografía -------------------------------------------------------------
+%  Estilo: IEEE (bibtex 'ieeetr') · Fichero: bibliography/references.bib
+\bibliographyconfig[ieeetr]{bibliography/references}
+
+
+% --- Metadatos del PDF --------------------------------------------------------
+\pdfmetavalues% # TODO ¿metadatos? ¿que poner?
+  {Anxo Canay Reguera}%
+  {Backend de Sistema de Corrección Digital de Exámenes Escritos}%
+  {Trabajo Fin de Grado}%
+  {corrección digital, exámenes, OCR, Django, backend, sistema distribuido, multi-tenant}

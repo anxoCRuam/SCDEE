@@ -38,9 +38,10 @@ ignore = [
 known-first-party = ["apps", "scdee"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**/*.py" = ["S101"]           # Allow assert in tests
+"**/tests/**/*.py" = ["S101", "S106", "S107"]           # Allow assert in tests
 "**/migrations/**/*.py" = ["E501"]      # Allow long lines in migrations
 "scdee/settings/*.py" = ["F405", "F403"]  # Import issues en settings
+"tests/*" = ["T201", "S311", "N803", "N806"]  # Import issues en settings
 # ============================================================
 # mypy — static type checker
 # ============================================================

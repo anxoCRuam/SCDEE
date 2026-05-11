@@ -1,0 +1,21 @@
+Los requisitos del SCDEE se elicitaron a partir de tres fuentes principales:
+las reuniones periódicas con el tutor, el estudio comparativo de las
+plataformas descritas en \cref{SEC:SOTA-PLATFORMS}, y los requisitos
+institucionales transversales de seguridad y privacidad. Cada requisito se
+formula operativamente en términos de entrada, proceso y salida, lo que
+facilita su validación posterior.
+
+Desde la perspectiva del backend, el actor inmediato es el \dfn{frontend},
+que materializa toda interacción con los actores humanos finales mediante
+peticiones a la \ac{api} \ac{rest}. Los actores humanos del sistema,
+ordenados por nivel de privilegio decreciente, son: el
+\textbf{superadministrador} del sistema, que gestiona las organizaciones
+cliente; el \textbf{gestor de organización} (\texttt{is\_staff=True}), que
+administra usuarios, cursos y configuración dentro de una
+organización; el \textbf{coordinador de asignatura}, responsable académico
+de una asignatura, con permisos plenos sobre sus exámenes; el
+\textbf{profesor}, corrector de las instancias que tiene asignadas; y el
+\textbf{alumno}, que consulta su instancia y solicita revisión. El sistema
+no implementa una jerarquía rígida de roles globales: los permisos
+académicos se definen contextualmente por asignatura mediante
+\texttt{SubjectMembership}.

@@ -1,0 +1,22 @@
+La especificación detallada con todos los \textit{endpoints}, sus
+parámetros, esquemas de petición y respuesta, códigos de error y
+ejemplos se ofrece por tres vías complementarias:
+
+\begin{itemize}
+
+  \item \textbf{Fichero \texttt{SCDEE API.yaml}} adjunto al material de
+  entrega del TFG, en formato OpenAPI 3.0. Cualquier herramienta
+  compatible (Postman, Insomnia, \textit{VS Code REST Client}) puede
+  importarlo.
+
+  \item \textbf{Swagger UI}, accesible durante la ejecución del sistema
+  en \texttt{http://localhost:8000/api/schema/swagger-ui/}, permite
+  explorar la \acs{api} de forma interactiva y ejecutar peticiones de
+  prueba contra un \dfn{backend} en marcha.
+
+  \item \textbf{Regeneración} a partir del código fuente mediante el
+  comando \texttt{python manage.py spectacular --file schema.yaml}
+  ejecutado dentro del contenedor de la \acs{api}. El esquema se
+  mantiene siempre sincronizado con la implementación.
+
+\end{itemize}

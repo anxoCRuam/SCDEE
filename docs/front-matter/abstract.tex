@@ -1,0 +1,34 @@
+The correction of handwritten exams is a time-intensive
+process that lacks platforms tailored to the Spanish academic context.
+Existing solutions, mostly foreign, present language barriers and
+incomplete integration with national academic management systems.
+
+This Bachelor's Thesis presents the design and implementation of the
+\dfn{backend} of SCDEE (\foreignlanguage{spanish}{Sistema de Corrección
+Digital de Exámenes Escritos}, Digital Handwritten Exam Correction
+System), a distributed \dfn{multitenant} service that automates the
+complete correction cycle from the physical delivery of scanned pages
+to the final archival of the corrected exam. The system combines an
+ingestion \textit{pipeline} based on \acs{qr} codes and
+error-tolerant optical character recognition with a modular
+architecture across thirteen Django applications and an extensible
+service layer based on interchangeable \dfnpl{plugin} (authentication,
+\acs{ocr} engines, zone recognisers).
+
+From the coordinator's perspective, the system covers exam creation
+with its models, declarative assignment of graders, capture of
+annotations (rich text, stylus strokes, audio) and grading by rubric
+or manual scoring. From the organisation manager's perspective, it
+offers per-\dfn{tenant} configuration, \acs{csv} import and export,
+automated closure of academic years and internationalisation of
+notifications.
+
+Validation combines an almost 90\,\% coverage on unit and integration tests,
+load tests with Locust that verify \cref{rnf:concurrency} under normal
+operation, and reproducible demonstration commands of the critical
+\textit{pipeline}. The architecture is prepared to evolve toward
+production-grade deployments, integration with \acs{lms} systems and
+institutional identity federation.
+
+\keywords{digital exam correction, multi-tenancy, OCR, Django,
+distributed systems, backend architecture}

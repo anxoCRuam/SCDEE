@@ -1,0 +1,213 @@
+Este anexo presenta el catálogo completo de los servicios del
+\dfn{backend} del SCDEE, agrupados por aplicación Django. Para cada
+servicio se indica el archivo de implementación, las funciones
+principales que expone y la responsabilidad funcional que asume. Esta
+vista detallada complementa la visión arquitectónica del
+\cref{SEC:DES-LAYERS} con la correspondencia explícita entre las capas
+conceptuales y las unidades concretas del código.
+
+\begingroup
+\small
+\renewcommand{\arraystretch}{1.25}
+\begin{longtable}{p{1.8cm} p{3.2cm} p{4.5cm} p{4.5cm}}
+\caption[Catálogo de servicios del backend del SCDEE]%
+        {Catálogo de servicios del \dfn{backend} del SCDEE.}
+\label{table:catalog-services} \\
+\hline
+\textbf{App} & \textbf{Archivo} & \textbf{Funciones principales} & \textbf{Responsabilidad} \\
+\hline
+\endfirsthead
+
+\multicolumn{4}{c}{\tablename\ \thetable: continúa de la página anterior} \\
+\hline
+\textbf{App} & \textbf{Archivo} & \textbf{Funciones principales} & \textbf{Responsabilidad} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{4}{r}{\textit{Continúa en la siguiente página}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+% ==== accounts ====
+\textbf{accounts}
+& \texttt{services/encryption.py}
+& \texttt{encrypt\_dni}, \texttt{decrypt\_dni}
+& Cifrado y descifrado \acs{aes}-256-\acs{gcm} del \acs{dni} \\
+
+& \texttt{services/password.py}
+& \texttt{generate\_secure\_password}, \texttt{validate\_password\_complexity}
+& Generación de contraseñas seguras y validación de complejidad \\
+
+& \texttt{services/user\_service.py}
+& \texttt{create\_user}, \texttt{update\_user}, \texttt{deactivate\_user}, \texttt{reset\_user\_password}, \texttt{get\_decrypted\_dni}, \texttt{UserFilter}
+& \acs{crud} de usuarios, cifrado del \acs{dni}, reseteo de contraseña e invalidación de tokens \\
+
+& \texttt{services/import\_export.py}
+& \texttt{import\_users}, \texttt{export\_users}, \texttt{parse\_csv\_file}, \texttt{parse\_json\_file}
+& Importación y exportación masiva de usuarios (\acs{csv} y \acs{json}) \\
+
+& \texttt{jwt\_plugin.py}
+& \texttt{authenticate}, \texttt{refresh}, \texttt{revoke}, \texttt{validate\_access\_token}
+& Emisión, rotación, revocación y validación de \acsp{jwt} \\
+
+& \texttt{jwt\_blacklist.py}
+& \texttt{add\_to\_blacklist}, \texttt{is\_blacklisted}, \texttt{blacklist\_all\_user\_tokens}, \texttt{get\_user\_token\_generation}
+& Lista negra de \acsp{jwt} en Redis \\
+
+& \texttt{backends.py}
+& \texttt{JWTAuthentication.authenticate}
+& \textit{Backend} \acs{drf} que integra el \dfn{plugin} \acs{jwt} y establece el contexto de \dfn{tenant} \\
+
+% ==== annotations ====
+\textbf{annotations}
+& \texttt{services/annotations.py}
+& \texttt{create\_annotation}, \texttt{update\_annotation}, \texttt{delete\_annotation}, \texttt{ocr\_grade\_annotation}, \texttt{ocr\_stylus\_annotation}
+& \acs{crud} de anotaciones, validación de audio, \acs{ocr} sobre calificaciones y trazos \\
+
+% ==== audit ====
+\textbf{audit}
+& \texttt{services/auditlog.py}
+& \texttt{log\_event}, \texttt{get\_client\_ip}
+& Creación de registros de auditoría inmutables y extracción de \acs{ip} real \\
+
+% ==== core ====
+\textbf{core}
+& \texttt{services/health.py}
+& \texttt{check\_postgresql}, \texttt{check\_redis}, \texttt{check\_minio}, \texttt{check\_celery}
+& Sondas de salud para los componentes de infraestructura \\
+
+& \texttt{tenancy/tenant\_context.py}
+& \texttt{set\_current\_organization\_id}, \texttt{get\_current\_organization\_id}, \texttt{clear\_current\_organization\_id}
+& Almacenamiento \textit{thread-local} del contexto de organización \\
+
+& \texttt{tenancy/managers.py}
+& \texttt{TenantManager}, \texttt{UnfilteredManager}
+& \textit{Managers} de Django para filtrado automático por organización y \textit{bypass} \\
+
+& \texttt{middleware.py}
+& \texttt{ClearTenantContextMiddleware}, \texttt{AntiCacheMiddleware}
+& Limpieza del contexto de \dfn{tenant} tras cada petición y cabeceras anti-caché \\
+
+& \texttt{exceptions.py}
+& \texttt{api\_exception\_handler}
+& Formateo uniforme de todas las respuestas de error de la \acs{api} \\
+
+& \texttt{pagination.py}
+& \texttt{StandardPagination}
+& Paginación estándar con conteo total y metadatos \\
+
+& \texttt{throttling.py}
+& \texttt{LoginRateThrottle}, \texttt{StandardUserThrottle}, \texttt{ManagerThrottle}
+& Limitación de peticiones por \acs{ip} y rol \\
+
+& \texttt{logging.py}
+& \texttt{JsonFormatter}
+& Formateo de \textit{logs} en \acs{json} estructurado \\
+
+% ==== courses ====
+\textbf{courses}
+& \texttt{services/courses.py}
+& \texttt{create\_course}, \texttt{update\_course}, \texttt{\_execute\_transition}
+& Creación de cursos con transición automática del curso anterior \\
+
+% ==== exams ====
+\textbf{exams}
+& \texttt{services/exam\_service.py}
+& \texttt{create\_exam}, \texttt{update\_exam}, \texttt{delete\_exam}, \texttt{create\_model}, \texttt{upload\_blank\_pdf}, \texttt{create\_page\_profile}, \texttt{create\_zone}, \texttt{delete\_zone}, \texttt{create\_problem}, \texttt{set\_rubric}, \texttt{set\_convocation}
+& \acs{crud} completo de exámenes, modelos, perfiles de página, zonas, problemas, rúbricas y convocatorias \\
+
+& \texttt{services/instrumented\_pdf.py}
+& \texttt{generate\_instrumented\_pdf}, \texttt{\_build\_qr\_content}, \texttt{\_create\_qr\_overlay}
+& Generación del \acs{pdf} instrumentado con códigos \acs{qr} superpuestos \\
+
+& \texttt{services/storage.py}
+& \texttt{upload\_to\_minio}, \texttt{download\_from\_minio}, \texttt{delete\_minio\_object}, \texttt{generate\_presigned\_url}
+& Operaciones de almacenamiento en MinIO (subida, descarga, borrado, \acsp{uri} prefirmadas) \\
+
+& \texttt{services/grade\_export.py}
+& \texttt{export\_grades}
+& Exportación de notas a \acs{csv} o \acs{json} con columnas configurables \\
+
+% ==== grading ====
+\textbf{grading}
+& \texttt{services/grading.py}
+& \texttt{grade\_problem}, \texttt{grade\_by\_rubric}, \texttt{create\_assignment\_rule}, \texttt{delete\_assignment\_rule}, \texttt{check\_coverage}, \texttt{get\_corrector\_tasks}, \texttt{can\_user\_grade\_instance}, \texttt{instance\_matches\_rule}
+& Calificación manual y por rúbrica con control de concurrencia optimista, reglas de asignación, cobertura y tareas del corrector \\
+
+% ==== ingestion ====
+\textbf{ingestion}
+& \texttt{services/ingestion\_service.py}
+& \texttt{process\_ingest\_file}
+& Normalización de archivos (\acs{pdf} o imagen), almacenamiento en MinIO y encolado de tareas de reconocimiento \\
+
+& \texttt{services/dispatcher.py}
+& \texttt{recognize\_page}
+& \textit{Pipeline} de reconocimiento por página: \acs{qr}, recorte de zonas e invocación de reconocedores \\
+
+& \texttt{services/assembler.py}
+& \texttt{assemble\_page}, \texttt{\_assemble\_with\_qr}, \texttt{\_assemble\_by\_proximity}
+& Ensamblado de páginas en instancias, incluyendo \textit{fallback} por proximidad temporal e identificación del estudiante \\
+
+& \texttt{services/matching.py}
+& \texttt{match\_student}, \texttt{\_ocr\_tolerant\_match}, \texttt{\_name\_similarity}
+& \textit{Matching} de atributos \acs{ocr} (\acs{nia}, \acs{dni}, nombre) contra la lista de convocados \\
+
+% ==== instances ====
+\textbf{instances}
+& \texttt{services/instance\_service.py}
+& \texttt{create\_instance}, \texttt{transition\_instance}, \texttt{check\_assembling\_complete}, \texttt{update\_instance}, \texttt{delete\_instance}, \texttt{reorder\_pages}, \texttt{discard\_page}, \texttt{move\_page}, \texttt{attach\_orphan\_page}, \texttt{accept\_extra\_page}, \texttt{recalculate\_total\_score}, \texttt{bulk\_publish}, \texttt{compose\_instance\_pdf}, \texttt{encrypt\_pdf}, \texttt{derive\_user\_key}
+& Máquina de estados, gestión de páginas, cálculo de nota total, publicación masiva, composición de \acs{pdf} con marca de agua y cifrado \\
+
+& \texttt{services/watermark.py}
+& \texttt{WatermarkService.apply\_watermark}
+& Aplicación de marcas de agua dinámicas a las páginas servidas a estudiantes \\
+
+& \texttt{services/access\_control.py}
+& \texttt{can\_access\_instance\_data}
+& Control de acceso a los datos de una instancia según rol, permisos del examen y estado de la revisión \\
+
+% ==== notifications ====
+\textbf{notifications}
+& \texttt{services/notifications.py}
+& \texttt{create\_notification}, \texttt{mark\_read}, \texttt{mark\_all\_read}, \texttt{archive\_by\_course}, \texttt{notify\_grades\_published}, \texttt{notify\_review\_opened}, \texttt{notify\_review\_result}, \texttt{notify\_review\_requests\_summary}, \texttt{notify\_assignment\_created}, \texttt{notify\_ingestion\_issue}, \texttt{notify\_auto\_deletion\_reminder}
+& Creación de notificaciones \textit{in-app}, envío de espejos por correo y archivado durante transiciones \\
+
+& \texttt{email.py}
+& \texttt{email\_language\_for}, \texttt{render\_email}, \texttt{send\_templated\_email}
+& Renderizado y envío de correos multiidioma utilizando plantillas del sistema \\
+
+% ==== organizations ====
+\textbf{organizations}
+& \texttt{services/organization\_config.py}
+& \texttt{get\_org\_config}, \texttt{update\_org\_config}
+& Lectura y actualización de la configuración por organización con caché Redis \\
+
+& \texttt{services/search.py}
+& \texttt{CourseFilter}, \texttt{SubjectFilter}, \texttt{ExamFilter}, \texttt{InstanceFilter}
+& Filtros para la búsqueda jerárquica (cursos, asignaturas, exámenes, instancias) \\
+
+% ==== reviews ====
+\textbf{reviews}
+& \texttt{services/reviews.py}
+& \texttt{create\_review}, \texttt{submit\_review\_requests}, \texttt{resolve\_request}, \texttt{open\_review}, \texttt{close\_review}, \texttt{get\_pending\_reviews\_for\_corrector}
+& Gestión de ventanas de revisión, solicitudes, resolución y notificaciones asociadas \\
+
+% ==== subjects ====
+\textbf{subjects}
+& \texttt{services/subjects.py}
+& \texttt{create\_subject}, \texttt{update\_subject}, \texttt{delete\_subject}, \texttt{create\_group}, \texttt{delete\_group}, \texttt{assign\_member}, \texttt{unassign\_member}
+& \acs{crud} de asignaturas, grupos y membresías \\
+
+& \texttt{services/permissions.py}
+& \texttt{update\_permissions}, \texttt{has\_subject\_permission}
+& Gestión de permisos personalizados por membresía y verificación de permisos \\
+
+& \texttt{services/import\_export.py}
+& \texttt{import\_subjects}, \texttt{export\_subjects}, \texttt{parse\_csv\_to\_subject\_list}
+& Importación y exportación masiva de asignaturas (\acs{json} y \acs{csv}) \\
+
+\end{longtable}
+\endgroup

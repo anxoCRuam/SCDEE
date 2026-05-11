@@ -1,0 +1,14 @@
+La literatura de arquitecturas \acs{saas} distingue varias estrategias para
+aislar los datos de los distintos \dfnpl{tenant}, que van desde una
+instancia completa de la aplicación por \dfn{tenant} hasta una única base
+de datos compartida con un campo discriminador
+(\texttt{organization\_id}) en cada tabla \cite{golding2024multitenant}.
+El SCDEE adopta esta última, motivada por la simplicidad operativa y la
+eficiencia de recursos: una única instancia de cada servicio atiende a
+todas las organizaciones, y el aislamiento se garantiza a nivel lógico
+mediante el filtrado automático por \texttt{organization\_id} que aplica
+el \acs{orm} en todas las consultas. Esta decisión reconoce su compromiso
+(menor aislamiento físico que en estrategias más segregadas) y deja
+abierta la migración a aislamientos más fuertes (por ejemplo, esquemas
+PostgreSQL separados por \dfn{tenant}) como línea de trabajo futuro sin
+cambios en el código de negocio.

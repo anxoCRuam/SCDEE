@@ -1,0 +1,27 @@
+La \cref{table:install-common-ops} resume los comandos del % TODO cuadro en vez de tabla
+\texttt{Makefile} para las operaciones habituales del ciclo de vida del
+sistema.
+
+\begin{table}[Comandos habituales del \texttt{Makefile}]%
+            {table:install-common-ops}%
+            {Comandos habituales del \texttt{Makefile}.}
+  \small
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabular}{l p{7cm}}
+    \hline
+    \textbf{Comando} & \textbf{Acción} \\
+    \hline
+    \texttt{make up}             & Arrancar los servicios \\
+    \texttt{make down}           & Detener los servicios sin borrar datos \\
+    \texttt{make restart}        & Reiniciar todos los servicios \\
+    \texttt{make ps}             & Listar contenedores en ejecución \\
+    \texttt{make logs}           & Ver \textit{logs} de todos los servicios \\
+    \texttt{make logs-api}       & Ver \textit{logs} solo de la \acs{api} \\
+    \texttt{make migrate}        & Aplicar migraciones pendientes \\
+    \texttt{make shell}          & \textit{Shell} interactiva de Django \\
+    \texttt{make dbshell}        & \textit{Shell} interactiva de PostgreSQL \\
+    \texttt{make check}          & Ejecutar \textit{lint} + \textit{typecheck} + \textit{tests} \\
+    \texttt{make sftp-watcher}   & Lanzar el \textit{watcher} de ingesta \\
+    \hline
+  \end{tabular}
+\end{table}

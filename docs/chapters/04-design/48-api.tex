@@ -1,0 +1,36 @@
+El backend expone su funcionalidad mediante una \acs{api} \acs{rest} que
+sigue convenciones uniformes en todos sus recursos.
+
+\begin{itemize}
+
+  \item \textbf{Versionado.} Todos los \textit{endpoints} se exponen bajo
+  el prefijo \texttt{/api/v1/}. Esta versión constituye un contrato
+  estable para el \dfn{frontend}; cambios incompatibles requerirán un
+  nuevo prefijo \texttt{/api/v2/}.
+
+  \item \textbf{Convención de errores.} Todos los errores se devuelven
+  con un formato uniforme que incluye un \texttt{error\_code} simbólico
+  (no traducible en el \dfn{backend}) y, en el caso de errores de
+  validación, un mapa por campo con los códigos correspondientes. El
+  \dfn{frontend} traduce estos códigos a mensajes localizables.
+
+  \item \textbf{Paginación, filtrado y ordenación.} Todas las listas se
+  paginan mediante una paginación \textit{offset} (\texttt{page},
+  \texttt{page\_size}) que devuelve el total de elementos y de páginas,
+  lo que permite al \dfn{frontend} mostrar paginación clásica con número
+  de página. El filtrado y la ordenación se aplican mediante parámetros
+  de \textit{query} coherentes en todos los \textit{endpoints} listables.
+
+  \item \textbf{Limitación de tasa.} El sistema aplica
+  \textit{throttling} configurable por categoría de usuario (anónimo,
+  autenticado estándar, gestor), con límites estrictos en
+  \textit{endpoints} sensibles como el inicio de sesión.
+
+  \item \textbf{Generación automática del contrato OpenAPI.} El esquema
+  OpenAPI del SCDEE se deriva automáticamente del código mediante
+  drf-spectacular, lo que garantiza que la documentación de la \acs{api}
+  permanezca sincronizada con la implementación. El esquema completo,
+  con la lista de \textit{endpoints} y sus contratos de entrada y salida,
+  se incluye en \cref{AP:OPENAPI}.
+
+\end{itemize}

@@ -42,6 +42,33 @@ drf-spectacular>=0.28,<0.29        # OpenAPI 3.x schema generation
 # Security & HTTP
 # ============================================================
 django-cors-headers>=4.6,<5.0      # CORS header management
+cryptography>=44.0,<45.0           # AES-256-GCM encryption for DNI (RF-16.3)
+
+# ============================================================
+# Filtering
+# ============================================================
+django-filter>=24.0,<25.0          # Declarative queryset filters for list endpoints
+
+# ============================================================
+# PDF processing (RF-6.7, RF-6.15)
+# ============================================================
+pypdf>=5.0,<6.0                    # PDF reading/writing (blank PDF, instrumented PDF)
+qrcode[pil]>=8.0,<9.0             # QR code generation for instrumented PDFs
+reportlab>=4.0,<5.0               # PDF overlay rendering (QR onto blank PDF)
+
+# ============================================================
+# Recognition & OCR (RF-9)
+# ============================================================
+pyzbar>=0.1,<1.0                   # QR code decoding from scanned pages (RF-9.3)
+Pillow>=11.0,<12.0                 # Image processing for zone cropping
+easyocr>=1.7,<2.0                  # Default OCR engine plugin (RF-9.5)
+pytesseract>=0.3.10,<0.4           # Tesseract OCR engine plugin (RF-9.9)
+pdf2image>=1.17,<2.0               # PDF → image rasterisation for tests/integration
+
+# ============================================================
+# Audio metadata (RF-10.1, RF-10.6)
+# ============================================================
+mutagen>=1.47,<2.0                 # Audio duration extraction (webm/ogg/opus/mp3/m4a)
 
 # ============================================================
 # Configuration

@@ -1,0 +1,1 @@
+{% load i18n %}{% blocktrans with exam=exam_name %}SCDEE — Ingestion incident: {{ exam }}{% endblocktrans %}

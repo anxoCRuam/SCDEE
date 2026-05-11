@@ -1,0 +1,1473 @@
+\begin{functional}
+
+  % --- RF-1 ---
+  \item \textbf{Autenticación y sesiones.}
+
+  El sistema debe proporcionar mecanismos de autenticación basados en tokens que permitan a los usuarios identificarse y mantener sesiones seguras. La arquitectura de autenticación se diseña como un sistema plugin intercambiable, basado exclusivamente en tokens, que permita la integración futura de mecanismos como Single Sign-On (SSO) institucional (OAuth2 o SAML), de forma que el frontend no requiera cambios al sustituir un plugin por otro. Para la versión 1.0 se implementa un plugin de autenticación basado en JSON Web Token (JWT), con access tokens de corta vida y refresh tokens rotativos.
+
+  \begin{functional}
+    \item \textbf{Abstracción del autenticador basado en tokens.}
+
+    El sistema debe definir una interfaz abstracta de autenticación basada en tokens que desacople el mecanismo concreto de autenticación del resto del sistema.
+
+    \textbf{Entrada:} no aplica directamente; este requisito define una restricción arquitectónica.
+
+    \textbf{Proceso:} el backend expone los recursos de autenticación a través de una interfaz genérica. Todos los plugins de autenticación deben producir tokens con una estructura de payload común o compatible, de modo que el frontend siempre reciba tokens del mismo formato independientemente del mecanismo subyacente. La implementación concreta se inyecta como un plugin configurable. Los plugins previstos son: (1) autenticador bearer JWT por credenciales (versión 1.0), (2) autenticador mixto SSO/JWT (futuro) y (3) autenticador solo SSO (futuro). Cambiar de plugin no debe requerir modificaciones en los recursos de negocio, los middlewares de autorización ni el frontend. La interfaz debe ser lo suficientemente genérica para que, en el futuro, el backend pueda emitir un access\_token válido del sistema tras validar una aserción SAML externa.
+
+    \textbf{Salida:} el sistema funciona correctamente con cualquier plugin de autenticación que implemente la interfaz definida y produzca tokens con el payload común.
+
+    \item \textbf{Inicio de sesión con credenciales.}
+
+    El sistema debe autenticar a los usuarios mediante correo electrónico y contraseña, emitiendo un par de tokens JWT.
+
+    \textbf{Entrada:} petición POST al recurso de autenticación con las credenciales del usuario (correo electrónico y contraseña).
+
+    \textbf{Proceso:} el sistema valida que el correo electrónico corresponde a un usuario registrado y activo, y verifica la contraseña contra el hash almacenado en base de datos. Si las credenciales son correctas, genera un access token de corta duración (5–30 minutos) y un refresh token rotativo de larga duración (7 días). El token JWT incluye en su payload el identificador de la organización del usuario para el filtrado multi-tenant automático. Se registra el evento de inicio de sesión en el log de auditoría.
+
+    \textbf{Salida:} respuesta con el par de tokens (access y refresh) y los datos básicos del usuario autenticado. En caso de credenciales inválidas o usuario inactivo, respuesta de error con código HTTP 401.
+
+    \item \textbf{Renovación de token de acceso.}
+
+    El sistema debe permitir obtener un nuevo access token a partir de un refresh token válido, sin requerir las credenciales del usuario.
+
+    \textbf{Entrada:} petición POST al recurso de renovación con el refresh token actual.
+
+    \textbf{Proceso:} el sistema verifica que el refresh token es válido, no ha expirado y no se encuentra en la lista negra almacenada en Redis. Si es válido, genera un nuevo par de tokens y revoca el refresh token anterior (rotación).
+
+    \textbf{Salida:} respuesta con el nuevo par de tokens. Si el refresh token es inválido o está revocado, respuesta de error con código HTTP 401.
+
+    \item \textbf{Cierre de sesión.}
+
+    El sistema debe permitir al usuario cerrar su sesión, invalidando los tokens activos.
+
+    \textbf{Entrada:} petición POST al recurso de cierre de sesión con el refresh token a invalidar.
+
+    \textbf{Proceso:} el sistema añade el refresh token a la lista negra en Redis con un ttl igual al tiempo restante de expiración del token, impidiendo su uso posterior para renovación. Se registra el evento de cierre de sesión en el log de auditoría.
+
+    \textbf{Salida:} respuesta de confirmación con código HTTP 204.
+
+    \item \textbf{Preparación para Single Sign-On multi-tenant [diseño preparatorio; no se implementa plugin SSO en la versión 1.0].}
+
+    El sistema debe estar preparado arquitectónicamente para soportar autenticación federada (SAML 2.0 y OIDC) por organización, sin requerir cambios en el frontend ni en la lógica de negocio principal.
+
+    \textbf{Entrada:} configuración administrativa a nivel de organización.
+
+    \textbf{Proceso:} la organización dispondrá de un campo auth\_mode que determine el flujo de autenticación activo. Se prevé la creación de tablas de configuración por proveedor de identidad (SamlConfig, OidcConfig) para almacenar metadatos del IdP, certificados X.509 y mapeo de atributos. El endpoint de inicio de autenticación identificará la organización a partir del dominio de correo electrónico o subdominio y devolverá el flujo correspondiente. Tras una autenticación SSO exitosa, el sistema emitirá el JWT estándar del sistema, garantizando que el middleware de autorización y el resto del backend operen de forma idéntica independientemente del origen de la autenticación.
+
+    \textbf{Salida:} la arquitectura de plugins de autenticación estará diseñada para aceptar un proveedor de identidad externo como fuente de verdad, validando la aserción externa y emitiendo el token interno correspondiente.
+
+  \end{functional}
+
+  % --- RF-2 ---
+  \item \textbf{Gestión de usuarios y organizaciones.}
+
+  El sistema se estructura en torno a organizaciones como contenedor principal multi-tenant. Una organización representa una institución (universidad, instituto) en modo instalación única, o un cliente en modo SaaS. Los usuarios no se eliminan físicamente: la baja se modela mediante desactivación lógica (is\_active=False) para preservar la integridad referencial con calificaciones, anotaciones y exámenes históricos. Los gestores (is\_staff=True) son los únicos que pueden crear, modificar y desactivar usuarios dentro de su organización. Los roles académicos se definen exclusivamente en el contexto de una asignatura mediante SubjectMembership (véase punto 4).
+
+  \begin{functional}
+    \item \textbf{Creación de organización.}
+
+    El sistema debe permitir la creación de nuevas organizaciones.
+
+    \textbf{Entrada:} petición POST al recurso de organizaciones, accesible solo por el superadministrador del sistema, con los datos: nombre de la organización, subdominio único, plan contratado (FREE o PREMIUM) y datos del gestor inicial.
+
+    \textbf{Proceso:} el sistema valida la unicidad del subdominio, crea la organización, crea el usuario gestor inicial (is\_staff=True, is\_active=True) y le envía un correo de bienvenida con su contraseña generada. Se registra la operación en el log de auditoría global.
+
+    \textbf{Salida:} respuesta con los datos de la organización creada y código HTTP 201.
+
+    \item \textbf{Creación individual de usuario.}
+
+    El sistema debe permitir a un gestor crear un usuario dentro de su organización.
+
+    \textbf{Entrada:} petición POST al recurso de usuarios con los datos del nuevo usuario: nombre, apellidos, DNI, identificador en la organización (NIA), correo electrónico y otros datos opcionales.
+
+    \textbf{Proceso:} el sistema valida la unicidad del correo electrónico, el NIA y el DNI dentro de la organización. Cifra el DNI con AES-256-GCM antes de almacenarlo. Genera una contraseña segura aleatoria, la almacena como hash con salt y encola un correo electrónico de bienvenida con la contraseña en texto plano. El usuario se crea con is\_active=True y is\_staff=False. Se registra la operación en el log de auditoría.
+
+    \textbf{Salida:} respuesta con los datos del usuario creado (sin contraseña ni DNI descifrado) y código HTTP 201.
+
+    \item \textbf{Importación masiva de usuarios.}
+
+    El sistema debe permitir a un gestor crear o reactivar múltiples usuarios simultáneamente a partir de un fichero estructurado.
+
+    \textbf{Entrada:} petición POST con un fichero en formato CSV o JSON que contenga los datos de cada usuario (nombre, apellidos, DNI, NIA, correo, etc.).
+
+    \textbf{Proceso:} el sistema parsea el fichero, valida cada registro individualmente y procesa la importación de forma transaccional. Para cada registro: si el usuario no existe en la organización, se crea con is\_active=True; si ya existe pero está inactivo, se reactiva y se actualizan sus datos personales; si ya existe y está activo, se actualizan sus datos. Para cada usuario se genera una contraseña segura y se encola el correo de bienvenida. Se registra la operación en el log de auditoría con el número de usuarios creados, reactivados y actualizados.
+
+    \textbf{Salida:} respuesta con un informe del resultado: número de usuarios creados, reactivados, actualizados y omitidos por error, con detalle de los errores de validación por fila.
+
+    \item \textbf{Modificación de datos de usuario.}
+
+    El sistema debe permitir a un gestor modificar los datos de cualquier usuario de su organización.
+
+    \textbf{Entrada:} petición PATCH al recurso del usuario con los campos a modificar (nombre, apellidos, correo).
+
+    \textbf{Proceso:} el sistema valida los datos actualizados, mantiene la unicidad de los campos restringidos dentro de la organización y aplica los cambios. Se registra el cambio en el log de auditoría con los valores anteriores y nuevos.
+
+    \textbf{Salida:} respuesta con los datos actualizados del usuario.
+
+    \item \textbf{Desactivación de usuario.}
+
+    El sistema debe permitir a un gestor dar de baja a un usuario sin eliminar su registro de la base de datos.
+
+    \textbf{Entrada:} petición PATCH al recurso del usuario estableciendo is\_active=False.
+
+    \textbf{Proceso:} el sistema marca al usuario como inactivo. Un usuario inactivo no puede autenticarse ni acceder a ningún recurso, pero sus datos y relaciones históricas (calificaciones, membresías en cursos archivados) se mantienen intactos. Se registra la operación en el log de auditoría.
+
+    \textbf{Salida:} respuesta de confirmación con los datos del usuario actualizado.
+
+    \item \textbf{Gestión de gestores.}
+
+    El sistema debe permitir a un gestor existente designar o revocar el rol de gestor a otros usuarios de la organización.
+
+    \textbf{Entrada:} petición PATCH al recurso del usuario modificando el campo is\_staff.
+
+    \textbf{Proceso:} el sistema verifica que el usuario que realiza la operación es gestor y pertenece a la misma organización. El usuario designado como gestor obtiene permisos de administración sobre la organización. Los gestores no se ven afectados por la desactivación automática en los cambios de curso. Se registra la operación en el log de auditoría.
+
+    \textbf{Salida:} respuesta con los datos actualizados del usuario.
+
+    \item \textbf{Generación y envío de contraseña segura.}
+
+    El sistema debe generar automáticamente una contraseña segura al crear un usuario y enviarla por correo electrónico.
+
+    \textbf{Entrada:} evento interno disparado tras la creación de un usuario.
+
+    \textbf{Proceso:} el sistema genera una contraseña aleatoria que cumpla requisitos mínimos de complejidad (longitud, mayúsculas, minúsculas, dígitos y caracteres especiales). La contraseña se almacena como hash con salt mediante Argon2 o bcrypt. Se encola una tarea asíncrona en la cola de notificaciones que envía un correo al usuario con la contraseña en texto plano y las instrucciones de primer acceso.
+
+    \textbf{Salida:} correo electrónico enviado al usuario. La contraseña en texto plano no se almacena en el sistema tras su envío.
+
+    \item \textbf{Restablecimiento de contraseña por gestor.}
+
+    El sistema debe permitir a un gestor forzar el restablecimiento de la contraseña de un usuario de su organización.
+
+    \textbf{Entrada:} petición POST al recurso de restablecimiento de contraseña indicando el identificador del usuario.
+
+    \textbf{Proceso:} el sistema verifica que el usuario pertenece a la misma organización. Genera una nueva contraseña segura, actualiza el hash almacenado, invalida todos los tokens activos del usuario (añadiendo los refresh tokens a la lista negra en Redis) y encola el envío de la nueva contraseña por correo. Se registra la operación en el log de auditoría.
+
+    \textbf{Salida:} respuesta de confirmación con código HTTP 200.
+
+    \item \textbf{Modificación del correo electrónico propio.}
+
+    El sistema debe permitir a cualquier usuario autenticado modificar su propia dirección de correo electrónico.
+
+    \textbf{Entrada:} petición PATCH al recurso del perfil propio con el nuevo correo electrónico.
+
+    \textbf{Proceso:} el sistema valida que el nuevo correo no esté ya registrado en la misma organización y aplica el cambio. Se registra la modificación en el log de auditoría.
+
+    \textbf{Salida:} respuesta con los datos actualizados del perfil.
+
+    \item \textbf{Consulta del perfil propio.}
+
+    El sistema debe permitir a cualquier usuario autenticado consultar sus datos personales, las asignaturas en las que participa y su rol en cada una.
+
+    \textbf{Entrada:} petición GET al recurso del perfil propio.
+
+    \textbf{Proceso:} el sistema recupera los datos del usuario autenticado, incluyendo nombre, apellidos, correo, preferencias de notificación y la lista de asignaturas del curso activo con el rol que ostenta en cada una (obtenido de SubjectMembership). El DNI se incluye descifrado solo si el usuario consulta su propio perfil o es gestor.
+
+    \textbf{Salida:} respuesta con los datos del perfil.
+
+    \item \textbf{Gestión de preferencias de notificación.}
+
+    El sistema debe permitir a cualquier usuario activar o desactivar la recepción de notificaciones por correo electrónico.
+
+    \textbf{Entrada:} petición PATCH al recurso del perfil propio con el campo de preferencia de notificaciones por correo.
+
+    \textbf{Proceso:} el sistema actualiza la preferencia. Cuando las notificaciones por correo están desactivadas, las notificaciones solo se almacenan en la base de datos (notificaciones in-app) sin enviar correo espejo.
+
+    \textbf{Salida:} respuesta con la preferencia actualizada.
+
+    \item \textbf{Listado y búsqueda de usuarios.}
+
+    El sistema debe permitir a un gestor listar y buscar usuarios de su organización con filtros avanzados.
+
+    \textbf{Entrada:} petición GET al recurso de usuarios con parámetros opcionales de filtrado (nombre, apellidos, NIA, correo, estado activo o inactivo) y paginación.
+
+    \textbf{Proceso:} el sistema aplica los filtros indicados sobre el conjunto de usuarios de la organización y devuelve los resultados paginados. Se permite la búsqueda parcial por texto en nombre y apellidos.
+
+    \textbf{Salida:} respuesta con la lista paginada de usuarios que cumplen los criterios, incluyendo los metadatos de paginación (total, página actual, tamaño de página).
+
+    \item \textbf{Exportación de usuarios.}
+
+    El sistema debe permitir a un gestor exportar la lista de usuarios de su organización en formato estructurado.
+
+    \textbf{Entrada:} petición GET al recurso de exportación de usuarios con parámetros opcionales de formato (CSV o JSON) y filtros.
+
+    \textbf{Proceso:} el sistema genera un fichero con los datos de los usuarios que cumplen los filtros indicados. Los datos sensibles (DNI) se incluyen descifrados en la exportación. Se registra la operación en el log de auditoría.
+
+    \textbf{Salida:} respuesta con el fichero generado como descarga.
+
+  \end{functional}
+
+  % --- RF-3 ---
+  \item \textbf{Cursos académicos.}
+
+  El sistema se organiza en torno a cursos académicos que pertenecen a una organización. En todo momento existe exactamente un curso activo por organización; los cursos anteriores se archivan y solo permanecen accesibles en modo lectura para los gestores. La transición de un curso al siguiente es una operación semiautomática ejecutada por un gestor que archiva el curso actual, desactiva a los usuarios no gestores y prepara el sistema para la importación de los datos del nuevo curso.
+
+  \begin{functional}
+    \item \textbf{Creación de curso académico.}
+
+    El sistema debe permitir a un gestor crear un nuevo curso académico para su organización, activándolo como curso vigente.
+
+    \textbf{Entrada:} petición POST al recurso de cursos con la etiqueta del curso (por ejemplo, «2025-2026»), la fecha de inicio y la fecha de fin (opcional).
+
+    \textbf{Proceso:} el sistema verifica que no exista ya un curso con la misma etiqueta dentro de la organización. El nuevo curso se marca como activo (is\_active=True). Si existía un curso activo anterior en la misma organización, se ejecuta automáticamente el proceso de transición. Las fechas de inicio y fin son informativas y no disparan automatismos.
+
+    \textbf{Salida:} respuesta con los datos del curso creado (etiqueta, fechas, estado activo) y código HTTP 201.
+
+    \item \textbf{Modificación de curso académico.}
+
+    El sistema debe permitir a un gestor modificar los datos de un curso académico.
+
+    \textbf{Entrada:} petición PATCH al recurso del curso con los campos a modificar (etiqueta, fecha de inicio, fecha de fin).
+
+    \textbf{Proceso:} el sistema valida los datos actualizados y registra el cambio en el log de auditoría con los valores anteriores y nuevos.
+
+    \textbf{Salida:} respuesta con los datos actualizados del curso.
+
+    \item \textbf{Transición de curso.}
+
+    El sistema debe ejecutar el proceso de transición cuando se crea un nuevo curso académico, archivando el curso anterior.
+
+    \textbf{Entrada:} evento interno disparado por la creación de un nuevo curso.
+
+    \textbf{Proceso:} el sistema realiza las siguientes acciones de forma transaccional: (1) marca el curso anterior como archivado (is\_active=False, status=ARCHIVED); (2) desactiva (is\_active=False) a todos los usuarios no gestores de la organización; (3) marca todas las SubjectMembership asociadas al curso archivado como is\_active=False; (4) archiva las notificaciones del curso anterior; (5) establece todas las instancias de examen al estado archivado, independientemente de su estado actual. Se registra la operación completa en el log de auditoría.
+
+    \textbf{Salida:} el curso anterior queda archivado y el sistema está preparado para recibir las importaciones de usuarios y asignaturas del nuevo curso.
+
+    \item \textbf{Consulta de cursos.}
+
+    El sistema debe permitir al gestor consultar la lista de cursos académicos de la organización, diferenciando el activo de los archivados.
+
+    \textbf{Entrada:} petición GET al recurso de search (RF-14) con filtros opcionales.
+
+    \textbf{Proceso:} el sistema recupera los cursos de la organización que cumplen el filtro indicado.
+
+    \textbf{Salida:} respuesta con la lista de cursos, incluyendo etiqueta, fechas, estado y número de asignaturas asociadas a cada uno.
+
+    \item \textbf{Navegación entre cursos por gestor.}
+
+    El sistema debe permitir a un gestor consultar los datos de cualquier curso archivado de su organización, incluyendo sus asignaturas, exámenes e instancias.
+
+    \textbf{Entrada:} petición GET a los recursos de asignaturas, exámenes o instancias incluyendo el identificador del curso como parámetro de contexto.
+
+    \textbf{Proceso:} el sistema filtra los resultados al curso indicado, que debe pertenecer a la organización del gestor. Las operaciones de lectura se permiten con normalidad; cualquier operación de escritura sobre un curso archivado se rechaza.
+
+    \textbf{Salida:} respuesta con los datos solicitados del curso seleccionado. Si se intenta una operación de escritura sobre un curso archivado, respuesta de error con código HTTP 403.
+
+  \end{functional}
+
+  % --- RF-4 ---
+  \item \textbf{Asignaturas y grupos.}
+
+  Las asignaturas constituyen la unidad organizativa principal del dominio académico. Cada asignatura pertenece a un curso académico (que a su vez pertenece a una organización) y contiene grupos de estudiantes, profesores asignados y exactamente un coordinador. Los grupos son exclusivos de cada asignatura: un identificador de grupo en una asignatura es independiente del mismo identificador en otra. Un usuario puede pertenecer a varias asignaturas del mismo curso y su rol se define en cada una mediante SubjectMembership.
+
+  \begin{functional}
+    \item \textbf{Creación individual de asignatura.}
+
+    El sistema debe permitir a un gestor crear una asignatura asociada al curso activo de su organización.
+
+    \textbf{Entrada:} petición POST al recurso de asignaturas con los datos: nombre, código, cuatrimestre (etiqueta libre: «1.er cuatrimestre», «anual», etc.) y el identificador del usuario que será coordinador.
+
+    \textbf{Proceso:} el sistema valida que el código de asignatura sea único dentro del curso activo y que el usuario designado como coordinador exista, esté activo y pertenezca a la misma organización. Se crea la asignatura y se asigna al coordinador mediante una SubjectMembership con role=COORDINATOR y el conjunto completo de permisos contextuales por defecto.
+
+    \textbf{Salida:} respuesta con los datos de la asignatura creada y código HTTP 201.
+
+    \item \textbf{Importación masiva de asignaturas.}
+
+    El sistema debe permitir a un gestor crear múltiples asignaturas simultáneamente, incluyendo la asignación de usuarios y grupos.
+
+    \textbf{Entrada:} petición POST con un fichero en formato CSV o JSON que contenga, para cada asignatura: nombre, código, cuatrimestre, coordinador, lista de profesores, lista de grupos y asignación de estudiantes a grupos.
+
+    \textbf{Proceso:} el sistema parsea el fichero y procesa cada asignatura de forma transaccional. Para cada una, se validan los datos, se crea la asignatura, se asignan los grupos, se asigna al coordinador y se vinculan profesores y estudiantes con sus roles y grupos respectivos mediante SubjectMembership (is\_active=True). Si un usuario referenciado no existe en la organización, se reporta como error en esa fila sin abortar el resto de la importación.
+
+    \textbf{Salida:} respuesta con un informe del resultado: número de asignaturas creadas, omitidas por error, y detalle de los errores de validación por fila.
+
+    \item \textbf{Modificación de asignatura.}
+
+    El sistema debe permitir a un gestor o al coordinador de la asignatura modificar sus datos.
+
+    \textbf{Entrada:} petición PATCH al recurso de la asignatura con los campos a modificar (nombre, código, cuatrimestre, coordinador).
+
+    \textbf{Proceso:} el sistema valida los datos actualizados. Si se cambia el coordinador, se actualiza el campo coordinador en la asignatura. El antiguo coordinador mantiene su SubjectMembership pero su rol se puede ajustar. Al nuevo coordinador se le otorga el rol COORDINATOR en SubjectMembership, creándola si no existía.
+
+    \textbf{Salida:} respuesta con los datos actualizados de la asignatura.
+
+    \item \textbf{Eliminación de asignatura.}
+
+    El sistema debe permitir a un gestor eliminar una asignatura que no tenga exámenes asociados.
+
+    \textbf{Entrada:} petición DELETE al recurso de la asignatura.
+
+    \textbf{Proceso:} el sistema verifica que la asignatura no tiene exámenes creados. Si los tiene, la eliminación se rechaza para preservar la integridad de los datos. Si no tiene exámenes, se eliminan las SubjectMembership asociadas y se elimina la asignatura.
+
+    \textbf{Salida:} respuesta con código HTTP 204 si se elimina correctamente, o código HTTP 409 si tiene exámenes asociados.
+
+    \item \textbf{Gestión de grupos.}
+
+    El sistema debe permitir al coordinador o al gestor crear, modificar y eliminar grupos dentro de una asignatura.
+
+    \textbf{Entrada:} peticiones POST, PATCH o DELETE al recurso de grupos de la asignatura, con el identificador del grupo (cadena alfanumérica, por ejemplo «2121»).
+
+    \textbf{Proceso:} al crear un grupo, se valida la unicidad del identificador dentro de la asignatura. Al eliminar un grupo, los estudiantes asignados a él quedan en la asignatura sin grupo asignado (mantienen su SubjectMembership con el campo de grupo vacío). Un estudiante sin grupo no puede ser convocado a exámenes hasta que se le reasigne uno.
+
+    \textbf{Salida:} respuesta con los datos del grupo creado o modificado, o código HTTP 204 en caso de eliminación.
+
+    \item \textbf{Asignación de usuarios a asignatura.}
+
+    El sistema debe permitir al coordinador o al gestor vincular usuarios a una asignatura con un rol específico (profesor o estudiante) y asignarlos a un grupo.
+
+    \textbf{Entrada:} petición POST al recurso de miembros de la asignatura con el identificador del usuario, el rol (TEACHER o STUDENT) y, opcionalmente, el identificador del grupo.
+
+    \textbf{Proceso:} el sistema valida que el usuario exista, esté activo y pertenezca a la organización. Se crea una SubjectMembership con el rol y los permisos contextuales predeterminados según la configuración de la organización. Si el rol es STUDENT, se verifica que el grupo indicado exista dentro de la asignatura y que el estudiante no esté ya asignado a otro grupo en la misma asignatura. Un estudiante puede estar temporalmente sin grupo asignado. Si el rol es TEACHER, la asignación a grupo es opcional.
+
+    \textbf{Salida:} respuesta con los datos de la asignación (usuario, rol, grupo, permisos).
+
+    \item \textbf{Desasignación de usuarios de asignatura.}
+
+    El sistema debe permitir al coordinador o al gestor desvincular a un usuario de una asignatura.
+
+    \textbf{Entrada:} petición DELETE al recurso del miembro de la asignatura (SubjectMembership).
+
+    \textbf{Proceso:} si el usuario tiene instancias de examen asociadas como corrector o estudiante, el sistema marca la SubjectMembership como is\_active=False (desactivación lógica); en caso contrario, se elimina físicamente.
+
+    \textbf{Salida:} respuesta con código HTTP 204.
+
+    \item \textbf{Listado de asignaturas del usuario.}
+
+    El sistema debe permitir a cualquier usuario autenticado consultar las asignaturas del curso activo en las que participa.
+
+    \textbf{Entrada:} petición GET al recurso de asignaturas propias.
+
+    \textbf{Proceso:} el sistema recupera las asignaturas del curso activo de la organización del usuario en las que tiene una SubjectMembership activa (is\_active=True), incluyendo el rol y el grupo si procede.
+
+    \textbf{Salida:} respuesta con la lista de asignaturas, cada una con su nombre, código, cuatrimestre, rol del usuario y grupo asignado.
+
+    \item \textbf{Consulta detallada de asignatura.}
+
+    El sistema debe permitir consultar la información completa de una asignatura, incluyendo miembros, grupos y exámenes.
+
+    \textbf{Entrada:} petición GET al recurso de la asignatura.
+
+    \textbf{Proceso:} el sistema recupera los datos de la asignatura según el rol del usuario que consulta. Los gestores, el coordinador y los profesores obtienen la información completa (todos los miembros, grupos y exámenes). Los estudiantes obtienen la información básica de la asignatura, su grupo y los exámenes publicados, sin lista de estudiantes.
+
+    \textbf{Salida:} respuesta con los datos de la asignatura adaptados al nivel de acceso del usuario.
+
+    \item \textbf{Exportación de asignaturas.}
+
+    El sistema debe permitir a un gestor exportar las asignaturas del curso activo de su organización en formato estructurado.
+
+    \textbf{Entrada:} petición GET al recurso de exportación de asignaturas con parámetro de formato (CSV o JSON).
+
+    \textbf{Proceso:} el sistema genera un fichero con los datos de las asignaturas, incluyendo las asignaciones de usuarios y grupos, en el formato solicitado.
+
+    \textbf{Salida:} respuesta con el fichero generado como descarga.
+
+  \end{functional}
+
+  % --- RF-5 ---
+  \item \textbf{Permisos y autorización.}
+
+  El sistema de autorización opera en tres capas contextuales, eliminando el concepto de «rol global» rígido. Los permisos se derivan de: (1) el flag is\_staff, que otorga permisos de gestor a nivel de organización; (2) la SubjectMembership, que define el rol (COORDINATOR, TEACHER, STUDENT) y los permisos contextuales dentro de una asignatura concreta mediante un campo JSON permission\_overrides; y (3) las reglas de asignación de corrección (AssignmentRule), que restringen el acceso a instancias o problemas concretos. Cada petición se evalúa contra el contexto actual (organización, curso, asignatura) para determinar si el usuario tiene autorización. La siguiente tabla recoge los permisos contextuales y sus valores por defecto según el rol.
+
+  | Permiso | COORD | TEACHER | STUDENT | |---------|-------|---------|---------| | can\_create\_exams | Sí | No | No | | can\_manage\_models | Sí | No | No | | can\_manage\_call\_list | Sí | No | No | | can\_assign\_correctors | Sí | No | No | | can\_grade | Sí | Sí | No | | can\_annotate | Sí | Sí | No | | can\_resolve\_issues | Sí | No | No | | can\_publish\_grades | Sí | No | No | | can\_manage\_reviews | Sí | No | No | | can\_view\_all\_instances | Sí | No | No | | can\_export\_grades | Sí | No | No | | can\_manage\_members | Sí | No | No | | can\_delegate\_perms | Sí | No | No |
+
+  \begin{functional}
+    \item \textbf{Permisos de gestor (is\_staff).}
+
+    El sistema debe otorgar automáticamente permisos de administración a los usuarios con is\_staff=True.
+
+    \textbf{Entrada:} evento interno disparado al establecer is\_staff=True en un usuario.
+
+    \textbf{Proceso:} un usuario con is\_staff=True obtiene permisos para gestionar usuarios, cursos, configuración y auditoría dentro de su organización. Tiene acceso de lectura y escritura a todas las asignaturas de su organización sin necesidad de una SubjectMembership explícita.
+
+    \textbf{Salida:} el usuario puede realizar operaciones de gestor.
+
+    \item \textbf{Asignación de permisos contextuales por defecto.}
+
+    El sistema debe asignar automáticamente un conjunto de permisos por defecto al crear una SubjectMembership, basado en el rol.
+
+    \textbf{Entrada:} creación de una SubjectMembership con un rol (COORDINATOR, TEACHER o STUDENT).
+
+    \textbf{Proceso:} el sistema inicializa el campo permission\_overrides como un diccionario vacío. Internamente, una función get\_effective\_permissions(membership) combina los permisos base del rol (véase tabla) con las anulaciones en permission\_overrides. Los permisos base por defecto de cada rol se obtienen de la configuración de la organización, lo que permite a cada organización adaptar los valores iniciales. Los permisos del rol STUDENT son fijos y no admiten permission\_overrides individuales; las restricciones de acceso del estudiante se configuran a nivel de examen.
+
+    \textbf{Salida:} la SubjectMembership queda creada con los permisos efectivos correspondientes.
+
+    \item \textbf{Modificación de permisos contextuales.}
+
+    El sistema debe permitir al coordinador de una asignatura modificar los permisos de un profesor en esa asignatura, añadiendo o eliminando permisos específicos.
+
+    \textbf{Entrada:} petición PATCH al recurso de la SubjectMembership con un objeto JSON de permisos a modificar (por ejemplo, \{can\_create\_exams: true\}).
+
+    \textbf{Proceso:} el sistema verifica que el usuario que modifica es el coordinador de la asignatura. Fusiona el JSON recibido con el permission\_overrides existente. Solo se pueden otorgar permisos que el otorgante posee. Se registra el cambio en el log de auditoría.
+
+    \textbf{Salida:} respuesta con la lista actualizada de permisos efectivos del profesor en esa asignatura.
+
+    \item \textbf{Revocación de permisos contextuales.}
+
+    El sistema debe permitir al coordinador revocar permisos contextuales previamente otorgados a un profesor, restaurando los valores por defecto.
+
+    \textbf{Entrada:} petición PATCH al recurso de la SubjectMembership con los permisos a revocar (por ejemplo, \{can\_create\_exams: null\}). Un valor null elimina la anulación y restaura el permiso por defecto del rol.
+
+    \textbf{Proceso:} el sistema elimina las claves indicadas del campo permission\_overrides.
+
+    \textbf{Salida:} respuesta con la lista actualizada de permisos efectivos.
+
+    \item \textbf{Consulta de permisos efectivos.}
+
+    El sistema debe permitir consultar los permisos efectivos de un usuario en una asignatura concreta.
+
+    \textbf{Entrada:} petición GET al recurso de permisos de la SubjectMembership.
+
+    \textbf{Proceso:} el sistema calcula los permisos efectivos combinando: el flag is\_staff, los permisos base del rol en SubjectMembership y las anulaciones en permission\_overrides.
+
+    \textbf{Salida:} respuesta con la lista de permisos efectivos del usuario, indicando la fuente de cada uno (base o anulación).
+
+    \item \textbf{Restricción de delegación.}
+
+    El sistema debe impedir que un usuario otorgue permisos que no posee.
+
+    \textbf{Entrada:} cualquier petición de modificación de permission\_overrides.
+
+    \textbf{Proceso:} antes de aplicar la asignación, el sistema compara la lista de permisos solicitados con los permisos efectivos del otorgante. Si algún permiso solicitado no está en los permisos del otorgante, la operación se rechaza íntegramente.
+
+    \textbf{Salida:} en caso de intento de exceso, respuesta de error con código HTTP 403.
+
+    \item \textbf{Permisos de corrección (capa AssignmentRule).}
+
+    El sistema debe restringir el acceso a las instancias de examen según las reglas de asignación de corrección.
+
+    \textbf{Entrada:} cualquier petición de acceso a una instancia de examen (consulta de páginas, anotaciones, calificaciones).
+
+    \textbf{Proceso:} el sistema verifica que el usuario que accede es el coordinador, un gestor o un corrector asignado a esa instancia o problema (mediante AssignmentRule). Los estudiantes solo acceden a su propia instancia y solo durante los períodos permitidos (publicación, revisión), limitados a los permisos configurados en el examen. Un profesor que no es corrector de una instancia puede consultar sus atributos pero no las páginas escaneadas.
+
+    \textbf{Salida:} acceso concedido si se cumplen las condiciones; en caso contrario, respuesta de error con código HTTP 403.
+
+  \end{functional}
+
+  % --- RF-6 ---
+  \item \textbf{Exámenes y modelos.}
+
+  Un examen es la entidad que representa una prueba evaluable dentro de una asignatura (por ejemplo, «Parcial 1 de Álgebra»). Cada examen tiene una lista de alumnos convocados, un conjunto de reglas de asignación de correctores y al menos un modelo. Los modelos definen variantes estructurales del examen: número de problemas, puntuaciones y zonas de reconocimiento agrupadas por página en perfiles de página (PageProfile). Cada modelo dispone además de un PDF en blanco de referencia a partir del cual se genera el PDF instrumentado que se imprime y se distribuye a los alumnos. Para cada alumno convocado existe una única instancia de examen, independientemente del modelo. Cuando los modelos comparten estructura, el sistema permite copiar la configuración de un modelo como plantilla base.
+
+  \begin{functional}
+    \item \textbf{Creación de examen.}
+
+    El sistema debe permitir al coordinador o a un profesor con el permiso can\_create\_exams crear un examen dentro de una asignatura.
+
+    \textbf{Entrada:} petición POST al recurso de exámenes de la asignatura con el nombre del examen.
+
+    \textbf{Proceso:} el sistema crea el examen asociado a la asignatura (que pertenece al curso activo de la organización). Se crea automáticamente un primer modelo con identificador «A» y sin problemas ni perfiles de página definidos. La lista de convocados se inicializa vacía.
+
+    \textbf{Salida:} respuesta con los datos del examen creado, incluyendo el modelo inicial, y código HTTP 201.
+
+    \item \textbf{Modificación de examen.}
+
+    El sistema debe permitir modificar los datos de un examen existente.
+
+    \textbf{Entrada:} petición PATCH al recurso del examen con los campos a modificar (nombre y permisos del alumno sobre la instancia).
+
+    \textbf{Proceso:} el sistema actualiza los datos del examen. Solo se permite la modificación si el examen no tiene instancias en estado publicado o posterior. Si se modifican los permisos del alumno, el cambio se aplica a todas las instancias del examen.
+
+    \textbf{Salida:} respuesta con los datos actualizados del examen.
+
+    \item \textbf{Eliminación de examen.}
+
+    El sistema debe permitir eliminar un examen que no tenga instancias asociadas.
+
+    \textbf{Entrada:} petición DELETE al recurso del examen.
+
+    \textbf{Proceso:} el sistema verifica que el examen no tiene instancias creadas. Si las tiene, la eliminación se rechaza. Si no las tiene, se eliminan los modelos, perfiles de página, zonas de reconocimiento, problemas, rúbricas y los ficheros PDF (tanto el en blanco original como los instrumentados) almacenados en MinIO.
+
+    \textbf{Salida:} respuesta con código HTTP 204 si se elimina correctamente, o código HTTP 409 si tiene instancias.
+
+    \item \textbf{Gestión de la lista de convocados.}
+
+    El sistema debe permitir al coordinador o a un profesor con el permiso can\_manage\_call\_list definir la lista de alumnos convocados a un examen.
+
+    \textbf{Entrada:} petición PUT al recurso de convocados del examen con la lista de identificadores de alumnos que deben estar convocados.
+
+    \textbf{Proceso:} el sistema recibe la lista completa de identificadores de alumnos convocados. Valida que todos los identificadores correspondan a estudiantes activos de la asignatura con SubjectMembership activa. Reemplaza la lista de convocados anterior por la nueva.
+
+    \textbf{Salida:} respuesta con la lista actualizada de convocados y el número total.
+
+    \item \textbf{Creación de modelo con copia de estructura base.}
+
+    El sistema debe permitir crear un modelo dentro de un examen, copiando opcionalmente la estructura de otro modelo existente.
+
+    \textbf{Entrada:} petición POST al recurso de modelos del examen con un identificador de modelo (cadena alfanumérica, por ejemplo «B») y, opcionalmente, el identificador de otro modelo del que copiar la estructura.
+
+    \textbf{Proceso:} si se indica un modelo fuente, el sistema copia sus perfiles de página con todas sus zonas de reconocimiento tipadas, la lista de problemas con sus puntuaciones, rúbricas y la referencia al PDF en blanco. Si no se indica fuente, el modelo se crea vacío. El PDF instrumentado no se copia: debe regenerarse una vez se completen los perfiles de página del nuevo modelo.
+
+    \textbf{Salida:} respuesta con los datos del modelo creado, incluyendo los perfiles y problemas copiados si procede, y código HTTP 201.
+
+    \item \textbf{Modificación de modelo.}
+
+    El sistema debe permitir modificar la estructura de un modelo: sus perfiles de página, zonas, problemas y puntuaciones.
+
+    \textbf{Entrada:} petición PATCH al recurso del modelo con los datos a modificar.
+
+    \textbf{Proceso:} el sistema actualiza la estructura del modelo. Si se modifican zonas de reconocimiento de tipo QR, el PDF instrumentado queda invalidado y debe regenerarse.
+
+    \textbf{Salida:} respuesta con los datos actualizados del modelo.
+
+    \item \textbf{Carga de PDF en blanco.}
+
+    El sistema debe permitir cargar el PDF en blanco de referencia de un modelo, necesario para definir los perfiles de página y generar el PDF instrumentado.
+
+    \textbf{Entrada:} petición POST o PUT al recurso de PDF en blanco del modelo con el fichero PDF.
+
+    \textbf{Proceso:} el sistema valida que el fichero es un PDF válido y no excede el tamaño máximo configurado por organización. El fichero se almacena en MinIO en un bucket dedicado a plantillas de examen. Si el modelo ya tenía un PDF en blanco, se sobreescribe y el PDF instrumentado asociado queda invalidado. Se permite reutilizar el mismo PDF entre modelos del mismo examen mediante una referencia. Se almacenan los metadatos del fichero (tamaño, tipo MIME, número de páginas, fecha de carga) en la base de datos.
+
+    \textbf{Salida:} respuesta con la confirmación de la carga, la referencia al fichero almacenado y el número de páginas detectado.
+
+    \item \textbf{Definición de perfiles de página y zonas de reconocimiento.}
+
+    El sistema debe permitir definir, para cada página del PDF en blanco de un modelo, un perfil de página (PageProfile) que agrupe las zonas de reconocimiento de esa página. Cada zona tiene un tipo que determina qué reconocedor se ejecuta sobre ella durante la ingesta.
+
+    \textbf{Entrada:} petición POST al recurso de perfiles del modelo con el número de página. Para cada zona dentro del perfil: petición POST con coordenadas del rectángulo (x, y, ancho, alto), tipo de zona y atributo asociado.
+
+    \textbf{Tipos de zona:} - `OCR\_TEXT`: reconocimiento de texto libre (nombre del alumno, etc.). Usa el motor OCR configurable. - `OCR\_NUMBER`: reconocimiento numérico con validación de formato. Usa el motor OCR con restricción de salida numérica. - `QR`: decodificación de código QR. No usa el motor OCR; usa un decodificador QR específico (pyzbar o equivalente). El resultado es determinista. - `CHECKBOX`: detección binaria de si una casilla está marcada. Usa análisis de densidad de píxeles o clasificador ligero.
+
+    \textbf{Proceso:} el sistema valida que el número de página está dentro del rango del PDF en blanco. Para cada zona, valida que las coordenadas estén dentro de los límites de la página y que el atributo asociado sea válido para el tipo de zona (las zonas QR tienen siempre un atributo fijo: `exam\_qr`, que codifica `org\_id`, `exam\_id`, `model\_id` y `page\_number`; las zonas de tipo OCR y CHECKBOX se asocian a atributos como nombre, DNI, NIA, código de asignatura, etc.). Se almacena el perfil de página y sus zonas vinculados al modelo.
+
+    \textbf{Salida:} respuesta con los datos del perfil de página creado, incluyendo sus zonas, y código HTTP 201. Al modificar o eliminar zonas de tipo QR, el PDF instrumentado del modelo queda marcado como invalidado.
+
+    \item \textbf{Definición de problemas.}
+
+    El sistema debe permitir definir los problemas o partes de un modelo, con su puntuación máxima y, opcionalmente, referencias a zonas de reconocimiento de los perfiles de página que abarquen la región de respuesta.
+
+    \textbf{Entrada:} petición POST al recurso de problemas del modelo con los datos: nombre o número del problema (por ejemplo, «Problema 1»), puntuación máxima (decimal) y, opcionalmente, una lista de referencias a zonas existentes en los perfiles de página (identificadas por perfil y zona).
+
+    \textbf{Proceso:} el sistema crea el problema y registra las referencias a zonas indicadas. Un problema puede no tener zonas asociadas (respuesta de longitud indefinida) o referenciar varias zonas de distintos perfiles de página. Las puntuaciones pueden ser negativas (penalizaciones).
+
+    \textbf{Salida:} respuesta con los datos del problema creado, sus zonas referenciadas y código HTTP 201.
+
+    \item \textbf{Configuración de permisos del alumno sobre el examen.}
+
+    El sistema debe permitir configurar qué información puede ver el alumno sobre su instancia una vez publicada.
+
+    \textbf{Entrada:} petición PATCH al recurso del examen con los permisos del alumno a modificar.
+
+    \textbf{Proceso:} el sistema actualiza los permisos configurables: ver páginas del examen, ver páginas incluso tras finalizar la revisión, descargar páginas, ver anotaciones, ver rúbrica y ver nota desglosada. Por defecto, todos los permisos están activados excepto la descarga y el acceso extendido. Estos permisos se aplican de forma uniforme a todas las instancias del examen.
+
+    \textbf{Salida:} respuesta con la configuración de permisos actualizada.
+
+    \item \textbf{Definición de rúbrica por problema.}
+
+    El sistema debe permitir definir una rúbrica de checkmarks con puntuación fija para cada problema.
+
+    \textbf{Entrada:} petición POST al recurso de rúbrica del problema con la lista de criterios, cada uno con descripción textual y puntuación fija (positiva o negativa).
+
+    \textbf{Proceso:} el sistema almacena los criterios de la rúbrica vinculados al problema. La suma de puntuaciones positivas debería coincidir con la puntuación máxima del problema; se permite flexibilidad para incluir bonificaciones y penalizaciones. Los criterios con puntuación negativa se interpretan como penalizaciones.
+
+    \textbf{Salida:} respuesta con la rúbrica completa del problema y código HTTP 201.
+
+    \item \textbf{Listado de exámenes de una asignatura.}
+
+    El sistema debe permitir consultar la lista de exámenes de una asignatura.
+
+    \textbf{Entrada:} petición GET al recurso de exámenes de la asignatura.
+
+    \textbf{Proceso:} el sistema recupera los exámenes de la asignatura adaptando la información al rol del usuario.
+
+    \textbf{Salida:} respuesta con la lista de exámenes, incluyendo nombre, número de modelos y número de instancias.
+
+    \item \textbf{Consulta detallada de examen.}
+
+    El sistema debe permitir consultar la información completa de un examen, incluyendo sus modelos, perfiles de página, zonas, problemas, rúbricas y estado.
+
+    \textbf{Entrada:} petición GET al recurso del examen.
+
+    \textbf{Proceso:} el sistema recupera los datos completos del examen, incluyendo la lista de modelos con sus perfiles de página, zonas tipadas, problemas, puntuaciones, rúbricas, estado del PDF instrumentado (válido o invalidado) y un resumen del estado de las instancias. La información se adapta al rol del usuario.
+
+    \textbf{Salida:} respuesta con los datos completos del examen.
+
+    \item \textbf{Almacenamiento de PDF en blanco en MinIO.}
+
+    El sistema debe almacenar los ficheros PDF en blanco de los modelos de examen en el servicio de almacenamiento de objetos.
+
+    \textbf{Entrada:} evento interno disparado por la carga de un PDF en blanco.
+
+    \textbf{Proceso:} el fichero se almacena en MinIO en un bucket específico para plantillas, con una clave que incluye el identificador de la organización, la asignatura, el examen y el modelo. Se almacenan los metadatos del fichero (tamaño, tipo MIME, número de páginas, fecha de carga) en la base de datos.
+
+    \textbf{Salida:} confirmación del almacenamiento con la referencia interna al objeto en MinIO.
+
+    \item \textbf{Generación del PDF instrumentado.}
+
+    El sistema debe generar automáticamente un PDF instrumentado a partir del PDF en blanco, incrustando códigos QR en las zonas de tipo QR de cada perfil de página.
+
+    \textbf{Entrada:} petición POST al recurso de generación del PDF instrumentado del modelo, disparada manualmente por el coordinador tras completar la definición de perfiles de página.
+
+    \textbf{Proceso:} el sistema verifica que el modelo tiene al menos un perfil de página con al menos una zona de tipo QR. Para cada página del PDF en blanco, superpone un código QR en las coordenadas de cada zona QR definida. El contenido del QR codifica `org\_id`, `exam\_id`, `model\_id` y `page\_number` en formato JSON minificado con un checksum de detección de errores. El QR generado tiene el tamaño exacto de la zona definida. El PDF instrumentado resultante se almacena en MinIO como un objeto independiente del PDF en blanco original, sin modificar este último. Los metadatos de generación (fecha, versión) se almacenan en base de datos. Si existía un PDF instrumentado previo para ese modelo, se sobreescribe.
+
+    \textbf{Salida:} respuesta con la confirmación de la generación y la referencia al PDF instrumentado en MinIO.
+
+    \item \textbf{Descarga del PDF instrumentado.}
+
+    El sistema debe permitir al coordinador o al gestor descargar el PDF instrumentado de un modelo para su impresión y distribución.
+
+    \textbf{Entrada:} petición GET al recurso de descarga del PDF instrumentado del modelo.
+
+    \textbf{Proceso:} el sistema verifica que existe un PDF instrumentado válido (no invalidado) para el modelo. Genera una URL temporal con expiración hacia el fichero en MinIO. Si el PDF instrumentado está invalidado (por modificación de zonas QR o del PDF en blanco), responde con un error indicando que debe regenerarse primero.
+
+    \textbf{Salida:} respuesta con la URL temporal para la descarga del PDF instrumentado, o error HTTP 409 si el PDF instrumentado está invalidado.
+
+  \end{functional}
+
+  % --- RF-7 ---
+  \item \textbf{Instancias de examen y páginas.}
+
+  Una instancia de examen es la materialización de un examen para un alumno concreto: el conjunto de páginas escaneadas, sus metadatos (alumno, modelo, fecha de recepción), sus anotaciones y sus calificaciones. Las páginas escaneadas se modelan como una entidad de primer nivel (ExamPage) vinculada a la instancia; el PDF completo del examen del alumno se genera bajo demanda componiendo las páginas en orden. Cada instancia sigue un ciclo de vida con máquina de estados que regula las transiciones y las operaciones permitidas en cada estado.
+
+  Las incidencias se modelan como un flag booleano (has\_issues) ortogonal al estado, con un tipo de incidencia que indica la causa. Una instancia puede avanzar en su ciclo de vida mientras tenga incidencias pendientes, salvo para la transición a publicado, que las requiere resueltas. Los estados del ciclo de vida son: ASSEMBLING (ensamblando páginas), RECEIVED (páginas completas recibidas), QUEUED (en cola de reconocimiento), PENDING\_GRADING (pendiente de corrección), GRADED (corregido), PUBLISHED (publicado), IN\_REVIEW (en revisión), PENDING\_REVIEW (pendiente de revisión), FINALIZED (finalizado) y ARCHIVED (archivado).
+
+  Los tipos de incidencia son: `QR\_READ\_ERROR` (zona QR ilegible), `QR\_MISMATCH` (QR indica exam/model/página distinto al esperado), `MISSING\_PAGE` (falta una o más páginas según el modelo), `EXTRA\_PAGE` (páginas adicionales no esperadas), `ORPHAN\_PAGE` (página sin QR legible asociada por proximidad temporal), `STUDENT\_NOT\_IDENTIFIED` (ninguna zona de identificación produjo resultado con confianza suficiente), `DUPLICATE\_STUDENT` (el alumno identificado ya tiene otra instancia en ese examen).
+
+  \begin{functional}
+    \item \textbf{Creación automática de instancia.}
+
+    El sistema debe crear automáticamente una instancia cuando se recibe e identifica la página de portada (primera página) de un examen de un alumno.
+
+    \textbf{Entrada:} evento interno disparado tras el reconocimiento exitoso del QR de una página de portada (página número 1 según el PageProfile del modelo).
+
+    \textbf{Proceso:} el sistema crea un registro de instancia con el estado ASSEMBLING, el examen y modelo identificados por el QR, la fecha de recepción y la primera ExamPage. El sistema determina cuántas páginas se esperan según el número de PageProfiles definidos para el modelo. Si las zonas de identificación de alumno (DNI, NIA, nombre) de la portada producen un resultado con confianza suficiente, se asocia el alumno. Si el alumno identificado ya tiene otra instancia en el examen, la nueva queda sin alumno asignado y con `has\_issues=True` e incidencia `DUPLICATE\_STUDENT`. Si no se identifica al alumno, se activa `has\_issues=True` con incidencia `STUDENT\_NOT\_IDENTIFIED`. A medida que llegan el resto de páginas del mismo alumno (identificadas por el QR), se añaden como ExamPage a la instancia. Cuando todas las páginas esperadas han llegado, la instancia transiciona automáticamente a RECEIVED.
+
+    \textbf{Salida:} instancia creada en estado ASSEMBLING, con o sin alumno asignado y con o sin incidencias.
+
+    \item \textbf{Modificación de instancia.}
+
+    El sistema debe permitir al corrector asignado, al coordinador o al gestor modificar los atributos de una instancia.
+
+    \textbf{Entrada:} petición PATCH al recurso de la instancia con los campos a modificar (alumno asociado, modelo).
+
+    \textbf{Proceso:} el sistema valida los datos y aplica los cambios. Si se asigna o cambia el alumno, se verifica que no exista ya otra instancia de ese alumno para el mismo examen. Si la modificación resuelve todas las incidencias pendientes (por ejemplo, se asigna un alumno a una instancia sin identificar y se completan todos los atributos obligatorios), el sistema desactiva automáticamente el flag has\_issues. La asignación de modelo puede realizarse manualmente mediante este recurso, además de por reconocimiento de QR.
+
+    \textbf{Salida:} respuesta con los datos actualizados de la instancia.
+
+    \item \textbf{Consulta de instancia.}
+
+    El sistema debe permitir consultar la información de una instancia, incluyendo el acceso a las páginas, anotaciones y calificaciones.
+
+    \textbf{Entrada:} petición GET al recurso de la instancia.
+
+    \textbf{Proceso:} el sistema recupera los datos de la instancia según el rol y los permisos del usuario solicitante. El corrector solo accede a las páginas de las instancias que tiene asignadas (vía AssignmentRule). El estudiante solo accede a su propia instancia y solo durante los períodos de publicación o revisión, limitado a los permisos configurados en el examen.
+
+    \textbf{Salida:} respuesta con los datos de la instancia adaptados al nivel de acceso del usuario.
+
+    \item \textbf{Listado de instancias con filtros.}
+
+    El sistema debe permitir listar las instancias de un examen con filtros avanzados.
+
+    \textbf{Entrada:} petición GET al recurso de instancias del examen con parámetros opcionales de filtrado: grupo, modelo, estado, corrector asignado, presencia de incidencias (has\_issues), tipo de incidencia, y paginación.
+
+    \textbf{Proceso:} el sistema aplica los filtros indicados y devuelve los resultados paginados. Un corrector solo ve las instancias que tiene asignadas.
+
+    \textbf{Salida:} respuesta con la lista paginada de instancias y metadatos de paginación.
+
+    \item \textbf{Máquina de estados del ciclo de vida.}
+
+    El sistema debe gestionar las transiciones de estado de cada instancia según la máquina de estados definida.
+
+    \textbf{Entrada:} petición PATCH al recurso de la instancia solicitando una transición de estado, o evento interno que la desencadena.
+
+    \textbf{Proceso:} el sistema valida que la transición solicitada es legal según la máquina de estados. Las transiciones válidas hacia delante son: ASSEMBLING → RECEIVED (automática al completarse todas las páginas) → QUEUED (automática al encolarse el reconocimiento) → PENDING\_GRADING (automática tras el reconocimiento) → GRADED → PUBLISHED → IN\_REVIEW. Desde IN\_REVIEW, las instancias con solicitud de revisión transicionan a PENDING\_REVIEW en lugar de a FINALIZED. Los retrocesos permitidos son: GRADED → PENDING\_GRADING, PUBLISHED → GRADED y FINALIZED → PENDING\_REVIEW. La transición de PENDING\_GRADING a GRADED requiere acción explícita del corrector o el coordinador; no se ejecuta automáticamente aunque todos los problemas tengan calificación. La transición a PUBLISHED requiere que la instancia no tenga incidencias pendientes (has\_issues=False). La transición a ARCHIVED solo se produce por cambio de curso. Se registra cada transición y su fecha en el log de auditoría. Cualquier transición ilegal se rechaza.
+
+    \textbf{Salida:} respuesta con el nuevo estado de la instancia, o error HTTP 409 si la transición no es válida.
+
+    \item \textbf{Detección automática de incidencias.}
+
+    El sistema debe detectar automáticamente incidencias derivadas de la ingesta y el reconocimiento.
+
+    \textbf{Entrada:} evento interno disparado tras la recepción de cada página o la finalización del reconocimiento de una instancia.
+
+    \textbf{Proceso:} el sistema evalúa los siguientes tipos de incidencias a nivel de página (ExamPage): `QR\_READ\_ERROR` si ninguna zona QR del perfil de página pudo decodificarse; `QR\_MISMATCH` si el QR indica un exam\_id, model\_id o page\_number distinto al esperado para esa instancia; `ORPHAN\_PAGE` si la página fue asociada por proximidad temporal al no tener QR legible; `EXTRA\_PAGE` si el número de página codificado en el QR supera el número de PageProfiles definidos para el modelo. A nivel de instancia: `MISSING\_PAGE` si, tras un tiempo de espera configurable, no han llegado todas las páginas esperadas; `STUDENT\_NOT\_IDENTIFIED` si ninguna zona de identificación produjo resultado con confianza suficiente; `DUPLICATE\_STUDENT` si el alumno identificado ya tiene otra instancia. Las instancias y páginas afectadas se marcan con has\_issues=True y el tipo de incidencia correspondiente.
+
+    \textbf{Salida:} instancias y páginas marcadas con incidencia según corresponda.
+
+    \item \textbf{Resolución manual de incidencias.}
+
+    El sistema debe permitir al coordinador o al gestor resolver incidencias manualmente.
+
+    \textbf{Entrada:} petición PATCH al recurso de la instancia o de la ExamPage afectada, proporcionando los datos que resuelven la incidencia (por ejemplo, asignar un alumno a una instancia sin identificar, reasignar una página huérfana, marcar páginas extra como ignorables).
+
+    \textbf{Proceso:} el sistema aplica la corrección y evalúa si todas las incidencias de la instancia y sus páginas quedan resueltas. Si no quedan incidencias activas, el sistema desactiva el flag has\_issues de la instancia.
+
+    \textbf{Salida:} respuesta con los datos actualizados de la instancia y el estado del flag de incidencias.
+
+    \item \textbf{Verificación de cobertura de corrección.}
+
+    El sistema debe verificar que todas las instancias de un examen tienen al menos un corrector asignado antes de permitir la publicación.
+
+    \textbf{Entrada:} petición GET al recurso de verificación de cobertura del examen, o comprobación automática al solicitar la transición a estado PUBLISHED.
+
+    \textbf{Proceso:} el sistema evalúa cada instancia y cada problema para determinar si tienen al menos un corrector asignado mediante AssignmentRule. Identifica las instancias y problemas sin cobertura.
+
+    \textbf{Salida:} respuesta con el resultado de la verificación: cobertura completa o lista de instancias y problemas sin corrector.
+
+    \item \textbf{Publicación masiva de notas.}
+
+    El sistema debe permitir al coordinador publicar las calificaciones de un examen, cambiando el estado de todas las instancias corregidas.
+
+    \textbf{Entrada:} petición POST al recurso de publicación del examen con la opción de notificar a los alumnos.
+
+    \textbf{Proceso:} el sistema verifica que todas las instancias están en estado GRADED, que no hay incidencias sin resolver (has\_issues=False en todas) y que la cobertura de corrección es completa. Si se cumplen las condiciones, transiciona todas las instancias al estado PUBLISHED. Si se solicita notificación, se encolan las notificaciones de publicación de notas a los alumnos. Si hay instancias sin corregir o con incidencias, la publicación se rechaza indicando el motivo.
+
+    \textbf{Salida:} respuesta de confirmación con el número de instancias publicadas, o error con el detalle de los impedimentos.
+
+    \item \textbf{Eliminación de instancia.}
+
+    El sistema debe permitir al coordinador o al gestor eliminar una instancia de examen.
+
+    \textbf{Entrada:} petición DELETE al recurso de la instancia.
+
+    \textbf{Proceso:} el sistema elimina la instancia, todas sus ExamPage, las anotaciones, las calificaciones y los ficheros de las páginas en MinIO. Se registra la eliminación en el log de auditoría.
+
+    \textbf{Salida:} respuesta con código HTTP 204.
+
+    \item \textbf{Descarga del PDF completo de instancia.}
+
+    El sistema debe permitir al coordinador o al gestor descargar el PDF completo de una instancia, generado bajo demanda a partir de sus páginas.
+
+    \textbf{Entrada:} petición GET al recurso de descarga de la instancia, con parámetro opcional de incluir anotaciones.
+
+    \textbf{Proceso:} el sistema compone las ExamPage de la instancia en orden y genera un PDF combinado. Si se solicita con anotaciones, las superpone sobre las páginas correspondientes. El PDF compuesto se genera en el momento de la petición (o se recupera de caché si está disponible). Se genera una URL temporal hacia el resultado almacenado en MinIO. Se registra el acceso en el log de auditoría.
+
+    \textbf{Salida:} respuesta con la URL temporal para la descarga del PDF compuesto.
+
+    \item \textbf{Retroceso de estado.}
+
+    El sistema debe permitir al coordinador retroceder el estado de una instancia para corregir errores.
+
+    \textbf{Entrada:} petición PATCH al recurso de la instancia solicitando una transición de retroceso.
+
+    \textbf{Proceso:} el sistema valida que la transición de retroceso es una de las permitidas (GRADED → PENDING\_GRADING, PUBLISHED → GRADED, FINALIZED → PENDING\_REVIEW) y la ejecuta. Se registra el retroceso en el log de auditoría.
+
+    \textbf{Salida:} respuesta con el nuevo estado de la instancia.
+
+    \item \textbf{Almacenamiento de páginas escaneadas en MinIO.}
+
+    El sistema debe almacenar las páginas escaneadas de las instancias individualmente en el servicio de almacenamiento de objetos.
+
+    \textbf{Entrada:} evento interno disparado por la recepción de cada página escaneada.
+
+    \textbf{Proceso:} cada página se almacena en MinIO en un bucket dedicado a instancias, organizado por organización, asignatura, examen e instancia. Se almacenan los metadatos de cada página (tamaño, dimensiones, número de orden, fecha de ingesta, estado de reconocimiento) en la base de datos como registro ExamPage.
+
+    \textbf{Salida:} confirmación del almacenamiento con la referencia interna al objeto en MinIO.
+
+    \item \textbf{Gestión manual de páginas de una instancia.}
+
+    El sistema debe proporcionar al coordinador y al gestor herramientas para corregir manualmente la composición de páginas de una instancia, necesarias para resolver incidencias de ingesta.
+
+    \textbf{Entrada:} peticiones específicas de gestión de páginas sobre el recurso de ExamPage.
+
+    \textbf{Operaciones disponibles:}
+
+    - \textbf{Reordenar páginas} (`PATCH /instances/\{id\}/pages/reorder/`): recibe una lista ordenada de identificadores de ExamPage y actualiza el número de orden de cada una. Útil cuando el escáner invierte el orden de páginas. - \textbf{Eliminar página} (`DELETE /instances/\{id\}/pages/\{page\_id\}/`): desvincula la página de la instancia (desactivación lógica; el fichero en MinIO se conserva). Útil para páginas duplicadas o escaneadas por error. La página eliminada pasa a estado DISCARDED. - \textbf{Mover página a otra instancia} (`POST /instances/\{id\}/pages/\{page\_id\}/move/`): reasigna la ExamPage a otra instancia del mismo examen. Útil cuando una página de un alumno quedó en la instancia incorrecta. - \textbf{Añadir página huérfana} (`POST /instances/\{id\}/pages/attach/`): vincula una ExamPage actualmente sin instancia asignada (huérfana) a la instancia indicada, asignándole un número de orden. Resuelve incidencias de tipo ORPHAN\_PAGE. - \textbf{Marcar página como extra} (`PATCH /instances/\{id\}/pages/\{page\_id\}/`): marca una página con incidencia EXTRA\_PAGE como aceptada, eliminando la incidencia sin eliminar la página.
+
+    \textbf{Proceso:} cada operación valida que el usuario tiene permisos de coordinador o gestor. Tras cualquier operación de reordenación o adición, el sistema reevalúa automáticamente las incidencias de la instancia. Se registra cada operación en el log de auditoría.
+
+    \textbf{Salida:} respuesta con el estado actualizado de las páginas de la instancia y el flag has\_issues recalculado.
+
+    \item \textbf{Generación de PDF bajo demanda.}
+
+    El sistema debe generar el PDF completo de una instancia bajo demanda, componiendo las ExamPage en orden.
+
+    \textbf{Entrada:} evento interno disparado por una petición de descarga o visualización de la instancia completa.
+
+    \textbf{Proceso:} el sistema recupera las ExamPage de la instancia en orden, las compone en un PDF.
+
+    \textbf{Salida:} PDF compuesto disponible para descarga o visualización.
+
+  \end{functional}
+
+  % --- RF-8 ---
+  \item \textbf{Reglas de corrección.}
+
+  El coordinador debe poder definir reglas de asignación (AssignmentRule) que determinen qué profesores corrigen qué instancias o problemas. Las reglas se basan en filtros combinables: grupo, modelo y problema. El sistema soporta que varios correctores estén asignados al mismo problema de la misma instancia; en ese caso, todos pueden calificar y la coordinación se resuelve de forma externa.
+
+  \begin{functional}
+    \item \textbf{Creación de reglas de asignación.}
+
+    El sistema debe permitir al coordinador crear reglas que asignen correctores a instancias o problemas.
+
+    \textbf{Entrada:} petición POST al recurso de reglas del examen con los datos de la regla: lista de profesores correctores y filtros de alcance combinables: grupo (uno, varios o todos), modelo (uno, varios o todos) y problema (uno, varios o todos).
+
+    \textbf{Proceso:} el sistema almacena la regla y calcula las asignaciones concretas que genera: qué corrector evalúa qué instancia y qué problemas. Por ejemplo, una regla «el profesor A corrige los problemas 1, 3 y 5 del modelo A» genera una asignación por cada instancia del modelo A.
+
+    \textbf{Salida:} respuesta con la regla creada, el número de asignaciones generadas y código HTTP 201.
+
+    \item \textbf{Eliminación de reglas de asignación.}
+
+    El sistema debe permitir al coordinador eliminar una regla de asignación.
+
+    \textbf{Entrada:} petición DELETE al recurso de la regla.
+
+    \textbf{Proceso:} el sistema elimina la regla y las asignaciones derivadas. Si hay calificaciones asociadas a asignaciones que se eliminan, estas calificaciones se conservan pero los correctores pierden el acceso a esas instancias.
+
+    \textbf{Salida:} respuesta con código HTTP 204.
+
+    \item \textbf{Aplicación de reglas y cálculo de asignaciones.}
+
+    El sistema debe aplicar todas las reglas activas del examen para generar las asignaciones concretas de corrector a instancias y problemas.
+
+    \textbf{Entrada:} petición POST al recurso de aplicación de reglas del examen, o evento interno tras la creación de nuevas instancias (ingesta).
+
+    \textbf{Proceso:} el sistema evalúa todas las reglas del examen contra el conjunto actual de instancias y genera o actualiza las asignaciones. Si una instancia nueva cumple los filtros de una regla existente, se le asigna automáticamente el corrector correspondiente.
+
+    \textbf{Salida:} respuesta con el resumen de asignaciones generadas o actualizadas.
+
+    \item \textbf{Verificación de cobertura.}
+
+    El sistema debe verificar que las reglas definidas cubren todas las instancias y problemas del examen.
+
+    \textbf{Entrada:} petición GET al recurso de verificación de cobertura del examen.
+
+    \textbf{Proceso:} el sistema identifica las instancias y los problemas que no tienen al menos un corrector asignado. Agrupa los resultados por modelo y grupo para facilitar la identificación de huecos.
+
+    \textbf{Salida:} respuesta indicando si la cobertura es completa o, en caso contrario, la lista detallada de instancias y problemas sin corrector asignado.
+
+    \item \textbf{Listado de tareas del corrector.}
+
+    El sistema debe permitir a un corrector consultar las instancias y problemas que tiene asignados para corregir.
+
+    \textbf{Entrada:} petición GET al recurso de tareas del corrector, con filtro opcional de examen y estado de corrección.
+
+    \textbf{Proceso:} el sistema recupera todas las asignaciones activas del corrector autenticado (derivadas de AssignmentRule), agrupadas por examen. Para cada asignación indica: instancia, problemas asignados, estado de corrección de cada problema (calificado o pendiente) y si la instancia tiene incidencias.
+
+    \textbf{Salida:} respuesta con la lista de tareas del corrector, paginada y con los indicadores de estado.
+
+  \end{functional}
+
+  % --- RF-9 ---
+  \item \textbf{Ingesta de documentos y reconocimiento.}
+
+  La ingesta de exámenes se realiza mediante un watcher que monitoriza carpetas SFTP en busca de nuevas páginas escaneadas. El escáner masivo envía los exámenes página a página; el sistema recibe páginas individuales, las identifica mediante el código QR incrustado y las agrupa en instancias. Toda la información de identificación (examen, modelo, página, alumno) se extrae exclusivamente mediante reconocedores: no se usa la estructura de carpetas SFTP ni ningún otro metadato externo para asociar páginas a exámenes. El sistema de reconocimiento se diseña como un dispatcher que invoca el reconocedor adecuado según el tipo de zona (QR, OCR\_TEXT, OCR\_NUMBER, CHECKBOX), con plugins intercambiables para el motor OCR.
+
+  \begin{functional}
+    \item \textbf{Monitorización de carpetas SFTP.}
+
+    El sistema debe mantener un watcher que monitorice una o varias carpetas SFTP en busca de nuevas páginas escaneadas.
+
+    \textbf{Entrada:} aparición de un nuevo fichero de imagen o PDF de una página en cualquiera de las carpetas SFTP configuradas.
+
+    \textbf{Proceso:} el watcher detecta la presencia del nuevo fichero, lo valida como imagen o PDF de una sola página y lo transfiere al almacenamiento temporal para su procesamiento. Debe soportar múltiples carpetas simultáneamente. El watcher se ejecuta como un proceso demonio independiente.
+
+    \textbf{Salida:} el fichero queda disponible para la siguiente fase de ingesta. Se genera un evento de recepción en el log de aplicación.
+
+    \item \textbf{Ingesta de página.}
+
+    El sistema debe procesar cada página recibida: validarla, almacenarla en MinIO y encolar su tarea de reconocimiento.
+
+    \textbf{Entrada:} evento de recepción de una nueva página procedente del watcher.
+
+    \textbf{Proceso:} el sistema valida que el fichero es una imagen o PDF de una sola página válido y no excede el tamaño máximo configurado por organización. La página se almacena en MinIO en el bucket de la organización correspondiente como un objeto ExamPage en estado PENDING\_RECOGNITION. A continuación, se encola una tarea en la cola de trabajos para el reconocimiento, con prioridad para la decodificación del QR.
+
+    \textbf{Salida:} ExamPage almacenada en MinIO y en base de datos en estado PENDING\_RECOGNITION. Si el fichero no es válido, se registra el error y se descarta.
+
+    \item \textbf{Identificación por QR.}
+
+    El sistema debe identificar el examen, el modelo y el número de página de cada página recibida mediante la decodificación del código QR incrustado en el PDF instrumentado.
+
+    \textbf{Entrada:} tarea de reconocimiento desencolada, con la referencia a la ExamPage.
+
+    \textbf{Proceso:} el sistema localiza en la base de datos los perfiles de página de todos los modelos activos de la organización y busca zonas de tipo QR. Para cada zona QR candidata, recorta la región de la imagen y ejecuta el decodificador QR. Si el QR se decodifica correctamente, extrae `org\_id`, `exam\_id`, `model\_id` y `page\_number`, verifica el checksum y determina a qué examen, modelo y página pertenece la imagen. Si ninguna zona QR produce un resultado válido, se activa la incidencia `QR\_READ\_ERROR` y se aplica el fallback de proximidad temporal (RF-9.12). Si el QR indica un examen o modelo que no existe en el sistema, se activa `QR\_MISMATCH`.
+
+    \textbf{Salida:} ExamPage asociada al examen, modelo y número de página correspondientes, o marcada con incidencia si el QR no pudo procesarse.
+
+    \item \textbf{Dispatcher de reconocedores.}
+
+    El sistema debe ejecutar los reconocedores adecuados para cada zona definida en el perfil de página correspondiente.
+
+    \textbf{Entrada:} ExamPage identificada (examen, modelo y número de página conocidos).
+
+    \textbf{Proceso:} el sistema recupera el PageProfile correspondiente al número de página en el modelo identificado. Para cada zona del perfil (excepto las zonas QR, ya procesadas): recorta la región de la imagen según las coordenadas de la zona e invoca el reconocedor correspondiente al tipo de zona. Los resultados se almacenan como atributos de la ExamPage o de la instancia, según el atributo asociado a la zona.
+
+    \textbf{Salida:} atributos extraídos almacenados en la ExamPage o en la instancia correspondiente.
+
+    \item \textbf{Reconocimiento de zonas OCR.}
+
+    El sistema debe ejecutar el motor OCR sobre las zonas de tipo OCR\_TEXT y OCR\_NUMBER para extraer texto o valores numéricos.
+
+    \textbf{Entrada:} recorte de imagen de una zona OCR\_TEXT u OCR\_NUMBER.
+
+    \textbf{Proceso:} el sistema envía el recorte al motor OCR seleccionado para la organización. Para zonas OCR\_NUMBER, el resultado se valida como numérico y se rechaza si no puede interpretarse como número. El resultado incluye el texto reconocido y un nivel de confianza.
+
+    \textbf{Salida:} texto o número reconocido con nivel de confianza.
+
+    \item \textbf{Reconocimiento de zonas CHECKBOX.}
+
+    El sistema debe evaluar las zonas de tipo CHECKBOX para determinar si están marcadas o no.
+
+    \textbf{Entrada:} recorte de imagen de una zona CHECKBOX.
+
+    \textbf{Proceso:} el sistema analiza la densidad de píxeles oscuros en el recorte o utiliza un clasificador binario ligero para determinar si la casilla está marcada (True) o vacía (False). El resultado incluye un nivel de confianza. Si la confianza es inferior al umbral, el atributo se marca como incierto.
+
+    \textbf{Salida:} valor booleano (marcado / no marcado) con nivel de confianza.
+
+    \item \textbf{Matching inteligente de atributos.}
+
+    El sistema debe intentar asociar los textos extraídos por el reconocimiento a atributos válidos del examen, incluso sin una coincidencia exacta.
+
+    \textbf{Entrada:} texto extraído para un atributo concreto (nombre, DNI, NIA).
+
+    \textbf{Proceso:} el sistema compara el texto extraído contra la lista de candidatos válidos (alumnos convocados al examen). Para el nombre, se utiliza una métrica de similitud textual (distancia de Levenshtein o similitud difusa). Para el DNI y el NIA, se aplica tolerancia a errores comunes de OCR (confusión de caracteres similares: 0/O, 1/l/I, etc.). Se establece un umbral de confianza configurable por debajo del cual la coincidencia se marca como incierta y se genera incidencia `STUDENT\_NOT\_IDENTIFIED`.
+
+    \textbf{Salida:} atributo asignado con un nivel de confianza, o incidencia si no se alcanza el umbral.
+
+    \item \textbf{Selección dinámica de motor OCR.}
+
+    El sistema debe permitir seleccionar el motor OCR a utilizar, tanto de forma global (por organización) como por petición individual. Este selector afecta únicamente a los reconocedores de tipo OCR\_TEXT y OCR\_NUMBER; los reconocedores de tipo QR y CHECKBOX son independientes del motor OCR.
+
+    \textbf{Entrada:} configuración global de la organización (motor por defecto) o parámetro opcional en la petición de ejecución de reconocimiento.
+
+    \textbf{Proceso:} el sistema consulta la configuración del motor OCR: si la petición incluye un motor específico, se usa ese; en caso contrario, se usa el motor por defecto definido en la configuración de la organización. Si el motor solicitado no está disponible o registrado, se rechaza la petición.
+
+    \textbf{Salida:} la tarea de reconocimiento OCR se ejecuta con el motor seleccionado.
+
+    \item \textbf{Registro de plugins de reconocedores.}
+
+    El sistema debe permitir registrar y mantener varios motores de OCR como plugins intercambiables, así como los reconocedores de QR y CHECKBOX como componentes fijos del sistema.
+
+    \textbf{Entrada:} configuración del sistema que define los motores OCR disponibles (por ejemplo, EasyOCR, Tesseract, servicios externos) y los reconocedores fijos de QR y CHECKBOX.
+
+    \textbf{Proceso:} cada motor OCR implementa la interfaz `BaseOCREngine` que acepta una imagen y devuelve el texto reconocido con un nivel de confianza. Los reconocedores de QR y CHECKBOX implementan la interfaz `BaseRecognizer` genérica con el mismo contrato `recognize(image\_bytes) → (value, confidence)`. Los motores OCR se registran con un identificador único, nombre descriptivo y parámetros propios (idioma, modelo entrenado, etc.). Los reconocedores QR y CHECKBOX no son configurables por organización: el sistema utiliza siempre la implementación fija.
+
+    \textbf{Salida:} los motores OCR quedan disponibles para ser seleccionados como motor por defecto por organización o por petición.
+
+    \item \textbf{Ensamblado de instancias a partir de páginas.}
+
+    El sistema debe ensamblar las páginas recibidas en instancias de examen, agrupando las páginas del mismo alumno bajo la misma instancia.
+
+    \textbf{Entrada:} evento interno disparado tras la identificación correcta de cada página (QR decodificado con éxito).
+
+    \textbf{Proceso:} el sistema determina si ya existe una instancia para el examen y alumno identificados. Si existe, añade la página como ExamPage con el número de orden indicado por el QR. Si no existe y la página es la portada (página número 1), crea una nueva instancia en estado ASSEMBLING. Si la página no es la portada y no existe instancia previa, la página espera en estado ORPHAN hasta que llegue la portada o hasta que el coordinador la gestione manualmente. El sistema evalúa si la instancia ha recibido todas las páginas esperadas según el número de PageProfiles del modelo; si es así, transiciona a RECEIVED y encola el reconocimiento de atributos completo.
+
+    \textbf{Salida:} instancia actualizada con la nueva página, o instancia transitada a RECEIVED si está completa.
+
+    \item \textbf{Fallback de proximidad temporal para páginas sin QR.}
+
+    El sistema debe asociar temporalmente las páginas sin QR legible a la instancia más reciente del mismo escáner o sesión de ingesta, como mecanismo de fallback para exámenes de longitud variable.
+
+    \textbf{Entrada:} evento interno disparado cuando una página no puede identificarse mediante QR (incidencia QR\_READ\_ERROR).
+
+    \textbf{Proceso:} el sistema registra la marca temporal de recepción de la página y la identidad del origen (carpeta SFTP o sesión de ingesta). Busca la instancia cuya última página llegó más recientemente desde el mismo origen. Si existe una instancia candidata en estado ASSEMBLING y la diferencia temporal es inferior al umbral configurable (por defecto, 30 segundos), asocia la página huérfana a esa instancia con incidencia `ORPHAN\_PAGE`. Si no existe candidato, la página queda en estado ORPHAN sin instancia asignada, para gestión manual.
+
+    \textbf{Salida:} página asociada por proximidad con incidencia ORPHAN\_PAGE activa, o página en estado ORPHAN pendiente de gestión manual.
+
+    \item \textbf{OCR sobre anotación de calificación.}
+
+    El sistema debe soportar la ejecución de OCR sobre una anotación de calificación creada por un corrector, extrayendo la nota y asignándola al problema correspondiente.
+
+    \textbf{Entrada:} petición POST al recurso de OCR de calificación, con la referencia a la anotación que contiene la nota y el identificador del problema al que se refiere.
+
+    \textbf{Proceso:} el sistema extrae el contenido de la anotación, ejecuta el motor de OCR para reconocer el valor numérico y, si se reconoce con confianza suficiente, asigna automáticamente la calificación al problema indicado. Si la confianza es insuficiente, se devuelve el texto reconocido sin aplicar la calificación, permitiendo al corrector confirmar o corregir manualmente.
+
+    \textbf{Salida:} respuesta con el valor reconocido, el nivel de confianza y la indicación de si la calificación se asignó automáticamente o queda pendiente de confirmación.
+
+    \item \textbf{OCR sobre anotaciones de stylus (extensible).}
+
+    El sistema debe soportar la ejecución de OCR sobre anotaciones de stylus para convertir trazos manuscritos a texto.
+
+    \textbf{Entrada:} petición POST al recurso de OCR de anotaciones, con la referencia a una o varias anotaciones de tipo stylus.
+
+    \textbf{Proceso:} el sistema renderiza los trazos JSON de la anotación a una imagen y la envía al motor de OCR seleccionado. En la versión 1.0 se implementa la interfaz y el flujo completo; la calidad del reconocimiento dependerá del motor utilizado y podrá mejorarse en versiones futuras.
+
+    \textbf{Salida:} respuesta con el texto reconocido y el nivel de confianza.
+
+  \end{functional}
+
+  % --- RF-10 ---
+  \item \textbf{Anotaciones.}
+
+  Las anotaciones son los registros que los correctores crean sobre las instancias de examen durante la corrección. Existen tres tipos: texto enriquecido (almacenado como payload opaco que el backend no interpreta), trazos de stylus (almacenados como JSON de trazos con coordenadas, presión y color) y audio (con un límite de duración configurable por organización). Una anotación puede estar asociada a un problema concreto o ser general de la instancia. Los payloads binarios se almacenan en MinIO; los metadatos en la base de datos.
+
+  \begin{functional}
+    \item \textbf{Creación de anotación.}
+
+    El sistema debe permitir a un corrector crear una anotación sobre una instancia asignada.
+
+    \textbf{Entrada:} petición POST al recurso de anotaciones de la instancia con los datos de la anotación: tipo (texto, stylus o audio), payload (contenido textual, JSON de trazos o fichero de audio), ubicación en la página (número de página y coordenadas) y, opcionalmente, el identificador del problema asociado.
+
+    \textbf{Proceso:} el sistema valida que el corrector tiene la instancia asignada (o el problema, si solo tiene asignados problemas concretos, vía AssignmentRule). Para anotaciones de audio, se valida que la duración no excede el límite configurado (por defecto, 60 minutos). El payload se almacena en MinIO (en el bucket de la organización). Se registran el autor, la fecha y la ubicación de la anotación.
+
+    \textbf{Salida:} respuesta con los datos de la anotación creada y código HTTP 201.
+
+    \item \textbf{Modificación de anotación.}
+
+    El sistema debe permitir a un corrector modificar una anotación existente, sobreescribiendo su contenido.
+
+    \textbf{Entrada:} petición PUT al recurso de la anotación con el payload actualizado.
+
+    \textbf{Proceso:} el sistema sobreescribe el contenido anterior de la anotación. No se mantiene historial de versiones; el estado anterior se pierde. Si la anotación tiene nuevo payload también, se reemplaza el fichero en MinIO. Solo el autor de la anotación puede modificarla.
+
+    \textbf{Salida:} respuesta con los datos actualizados de la anotación.
+
+    \item \textbf{Eliminación de anotación.}
+
+    El sistema debe permitir a un corrector eliminar una anotación que haya creado.
+
+    \textbf{Entrada:} petición DELETE al recurso de la anotación.
+
+    \textbf{Proceso:} el sistema elimina la anotación de la base de datos y el fichero asociado del almacenamiento de objetos.
+
+    \textbf{Salida:} respuesta con código HTTP 204.
+
+    \item \textbf{Consulta de anotaciones de una instancia.}
+
+    El sistema debe permitir consultar las anotaciones de una instancia, con filtros por problema y página.
+
+    \textbf{Entrada:} petición GET al recurso de anotaciones de la instancia con parámetros opcionales de filtrado: problema, número de página, tipo de anotación y autor.
+
+    \textbf{Proceso:} el sistema recupera las anotaciones que cumplen los filtros. Los correctores acceden a las anotaciones de las instancias que tienen asignadas. Los estudiantes acceden a las anotaciones de su propia instancia solo durante la revisión y si el examen tiene activado el permiso de ver anotaciones.
+
+    \textbf{Salida:} respuesta con la lista de anotaciones, cada una con sus metadatos y payload (o referencia al payload binario).
+
+    \item \textbf{Anotación de calificación.}
+
+    El sistema debe soportar una anotación especial con un indicador que la identifica como anotación de calificación, desencadenando la asignación automática de nota.
+
+    \textbf{Entrada:} petición POST al recurso de anotaciones de calificación, con el payload de la anotación y el identificador del problema.
+
+    \textbf{Proceso:} se ejecuta OCR sobre el payload (trazos o texto) para extraer el valor numérico. La anotación se almacena como cualquier otra, pero con el indicador de calificación activo.
+
+    \textbf{Salida:} respuesta con la anotación creada y la calificación asignada (o el resultado del OCR si se requiere confirmación).
+
+    \item \textbf{Almacenamiento de payloads en MinIO.}
+
+    El sistema debe almacenar los payloads de las anotaciones en el servicio de almacenamiento de objetos.
+
+    \textbf{Entrada:} evento interno disparado por la creación de una anotación.
+
+    \textbf{Proceso:} el fichero se almacena en MinIO en un bucket dedicado a anotaciones (dentro del namespace de la organización), con una clave que incluye el identificador de la instancia y la anotación. Para los audios, se valida el formato y la duración antes del almacenamiento.
+
+    \textbf{Salida:} confirmación del almacenamiento con la referencia interna al objeto en MinIO.
+
+    \item \textbf{Asociación opcional a problema.}
+
+    El sistema debe permitir que una anotación esté asociada a un problema concreto o sea general de la instancia.
+
+    \textbf{Entrada:} campo opcional de identificador de problema en la petición de creación o modificación de la anotación.
+
+    \textbf{Proceso:} si se indica un problema, el sistema valida que el problema existe en el modelo de la instancia y que el corrector tiene asignado ese problema. Si no se indica problema, la anotación se considera general de la instancia.
+
+    \textbf{Salida:} anotación almacenada con o sin problema asociado.
+
+  \end{functional}
+
+  % --- RF-11 ---
+  \item \textbf{Calificaciones.}
+
+  Las calificaciones representan la valoración numérica de cada problema de una instancia de examen. Son valores decimales que pueden ser negativos a nivel de problema, aunque la calificación total del examen tiene como mínimo 0. La nota total se calcula siempre como la suma de las calificaciones de los problemas. El sistema soporta la doble corrección mediante concurrencia optimista: si dos correctores intentan calificar el mismo problema, se compara la nota anterior conocida por el corrector con la almacenada y solo se aplica el cambio si coinciden.
+
+  \begin{functional}
+    \item \textbf{Asignación manual de nota a problema.}
+
+    El sistema debe permitir a un corrector asignar o modificar la calificación numérica de un problema.
+
+    \textbf{Entrada:} petición PUT al recurso de calificación del problema en la instancia, con la nota nueva y la nota anterior conocida por el corrector.
+
+    \textbf{Proceso:} el sistema implementa concurrencia optimista: compara la nota anterior enviada por el corrector con la nota actualmente almacenada. Si coinciden, aplica la nueva nota. Si no coinciden (otro corrector la modificó entre tanto), rechaza la operación indicando que los datos están desactualizados y devuelve la calificación actual. Las calificaciones pueden ser decimales y negativas. Se registra la modificación en el log de auditoría con la nota anterior, la nueva, el autor y la fecha.
+
+    \textbf{Salida:} respuesta con la calificación actualizada, o error HTTP 409 si hay conflicto de concurrencia, incluyendo la calificación actual.
+
+    \item \textbf{Asignación de nota por rúbrica.}
+
+    El sistema debe permitir a un corrector calificar un problema marcando o desmarcando los checkmarks de su rúbrica.
+
+    \textbf{Entrada:} petición PUT al recurso de rúbrica del problema en la instancia, con la lista de criterios marcados (identificadores de los checkmarks activos).
+
+    \textbf{Proceso:} el sistema calcula la calificación del problema como la suma de las puntuaciones de los criterios marcados (incluyendo criterios negativos como penalizaciones). Se aplica concurrencia optimista sobre el estado de la rúbrica. La calificación resultante se asigna al problema automáticamente.
+
+    \textbf{Salida:} respuesta con el estado de la rúbrica (criterios marcados), la calificación resultante y, si procede, error de conflicto.
+
+    \item \textbf{Cálculo automático de nota total.}
+
+    El sistema debe calcular la nota total de una instancia como la suma de las calificaciones de sus problemas, con un mínimo de 0.
+
+    \textbf{Entrada:} evento interno disparado tras cualquier modificación de una calificación de problema.
+
+    \textbf{Proceso:} el sistema recalcula la nota total de la instancia sumando las calificaciones de todos los problemas del modelo. Si la suma es negativa, la nota total se establece en 0. Los problemas sin calificar se consideran como 0 a efectos del cálculo, pero la instancia no se marca como completamente corregida hasta que todos los problemas tengan calificación explícita.
+
+    \textbf{Salida:} nota total actualizada en la instancia.
+
+    \item \textbf{Consulta de calificaciones desglosadas.}
+
+    El sistema debe permitir consultar las calificaciones desglosadas de una instancia.
+
+    \textbf{Entrada:} petición GET al recurso de calificaciones de la instancia.
+
+    \textbf{Proceso:} el sistema recupera la calificación de cada problema, el estado de la rúbrica (si aplica), la nota total y el estado de corrección (completa o parcial). El nivel de detalle depende del rol del usuario y los permisos configurados en el examen.
+
+    \textbf{Salida:} respuesta con las calificaciones desglosadas y la nota total.
+
+    \item \textbf{Concurrencia optimista en calificaciones.}
+
+    El sistema debe resolver conflictos de escritura simultánea en calificaciones mediante concurrencia optimista.
+
+    \textbf{Entrada:} cualquier petición de modificación de calificación que incluya la nota anterior conocida por el corrector.
+
+    \textbf{Proceso:} antes de aplicar la nueva calificación, el sistema compara la nota anterior enviada con la almacenada en base de datos. Si coinciden, la operación se ejecuta. Si difieren, la operación se rechaza con un código de conflicto, devolviendo la calificación actual para que el corrector pueda sincronizarse.
+
+    \textbf{Salida:} confirmación de la operación o error HTTP 409 con la calificación actual.
+
+    \item \textbf{Consulta de nota por alumno.}
+
+    El sistema debe permitir al alumno consultar su nota una vez publicada.
+
+    \textbf{Entrada:} petición GET al recurso de calificación de la instancia propia.
+
+    \textbf{Proceso:} el sistema verifica que la instancia está en estado PUBLISHED o posterior (excluyendo ARCHIVED). Si el examen tiene activado el permiso de ver nota desglosada, se devuelve la calificación de cada problema y la nota total. Si solo está activado el permiso de ver la nota total, se omite el desglose. Si la instancia no está publicada, se deniega el acceso.
+
+    \textbf{Salida:} respuesta con la nota (desglosada o total según permisos), o error HTTP 403 si la instancia no está publicada.
+
+  \end{functional}
+
+  % --- RF-12 ---
+  \item \textbf{Revisión de exámenes.}
+
+  La revisión permite al coordinador definir una ventana temporal durante la cual los alumnos pueden consultar su instancia corregida y solicitar una recorrección de problemas concretos. Durante la ventana, los alumnos acceden a las páginas escaneadas, las anotaciones y la rúbrica (según los permisos del examen). Tras el cierre de la ventana, los correctores atienden las solicitudes de revisión y pueden modificar las calificaciones. En la versión 1.0, cada examen admite una única revisión.
+
+  \begin{functional}
+    \item \textbf{Creación de ventana de revisión.}
+
+    El sistema debe permitir al coordinador crear una ventana de revisión para un examen, definiendo la fecha y hora de inicio y fin.
+
+    \textbf{Entrada:} petición POST al recurso de revisiones del examen con la fecha y hora de inicio, la fecha y hora de fin y la opción de notificar a los alumnos.
+
+    \textbf{Proceso:} el sistema valida que el examen tiene todas sus instancias en estado PUBLISHED y que no existe ya una revisión para este examen (versión 1.0). Se crea la revisión con los datos proporcionados. Si se solicita notificación, se encolan las notificaciones a los alumnos con la fecha de revisión.
+
+    \textbf{Salida:} respuesta con los datos de la revisión creada y código HTTP 201.
+
+    \item \textbf{Apertura automática de acceso.}
+
+    El sistema debe abrir automáticamente el acceso de los alumnos a sus instancias al inicio de la ventana de revisión.
+
+    \textbf{Entrada:} evento temporal: la hora del sistema alcanza la fecha y hora de inicio de la ventana.
+
+    \textbf{Proceso:} el sistema transiciona las instancias publicadas del examen al estado IN\_REVIEW. A partir de este momento, los alumnos pueden acceder a las páginas escaneadas, las anotaciones, la rúbrica y las calificaciones de su instancia, según los permisos configurados en el examen.
+
+    \textbf{Salida:} instancias en estado IN\_REVIEW, accesibles para los alumnos.
+
+    \item \textbf{Cierre automático de acceso.}
+
+    El sistema debe cerrar automáticamente el acceso de los alumnos al finalizar la ventana de revisión.
+
+    \textbf{Entrada:} evento temporal: la hora del sistema alcanza la fecha y hora de fin de la ventana.
+
+    \textbf{Proceso:} el sistema cierra el acceso de lectura de los alumnos a sus instancias. Las instancias que no tengan solicitud de revisión pendiente pasan al estado FINALIZED. Las instancias con al menos una solicitud de revisión pendiente pasan al estado PENDING\_REVIEW.
+
+    \textbf{Salida:} instancias en estado FINALIZED o PENDING\_REVIEW según corresponda.
+
+    \item \textbf{Solicitud de revisión por alumno.}
+
+    El sistema debe permitir al alumno solicitar la revisión de uno o varios problemas de su instancia durante la ventana de revisión.
+
+    \textbf{Entrada:} petición POST al recurso de solicitudes de revisión de la instancia, con la lista de problemas a revisar y un mensaje opcional por cada problema.
+
+    \textbf{Proceso:} el sistema valida que la ventana de revisión está abierta y que el alumno es el propietario de la instancia. Se crea una solicitud de revisión por cada problema indicado, cada una con el mensaje del alumno.
+
+    \textbf{Salida:} respuesta con las solicitudes creadas y código HTTP 201.
+
+    \item \textbf{Notificación agrupada de solicitudes al corrector.}
+
+    El sistema debe notificar a cada corrector las solicitudes de revisión que le conciernen, agrupadas en una única notificación.
+
+    \textbf{Entrada:} evento interno disparado por el cierre de la ventana de revisión.
+
+    \textbf{Proceso:} el sistema agrupa las solicitudes de revisión por corrector: para cada corrector, recopila todas las solicitudes que afectan a problemas que tiene asignados (vía AssignmentRule). Se genera una única notificación por corrector con el resumen de las solicitudes.
+
+    \textbf{Salida:} notificaciones creadas y, si el corrector tiene habilitadas las notificaciones por correo, correos enviados con el resumen.
+
+    \item \textbf{Recorrección por corrector.}
+
+    El sistema debe permitir al corrector atender las solicitudes de revisión, pudiendo modificar las calificaciones y anotaciones de las instancias con solicitudes pendientes.
+
+    \textbf{Entrada:} peticiones estándar de modificación de calificaciones y anotaciones sobre las instancias en estado PENDING\_REVIEW que el corrector tiene asignadas.
+
+    \textbf{Proceso:} el corrector puede consultar los mensajes de las solicitudes, revisar el examen, crear nuevas anotaciones, modificar las existentes y ajustar las calificaciones. El flujo de calificación es el mismo que en la corrección inicial (concurrencia optimista, rúbrica, asignación manual).
+
+    \textbf{Salida:} calificaciones y anotaciones actualizadas según la recorrección.
+
+    \item \textbf{Cierre de solicitud de revisión.}
+
+    El sistema debe permitir al corrector cerrar una solicitud de revisión.
+
+    \textbf{Entrada:} petición PATCH al recurso de la solicitud de revisión, marcándola como resuelta.
+
+    \textbf{Proceso:} el sistema marca la solicitud como cerrada. Si todas las solicitudes de la instancia están cerradas, la instancia pasa al estado FINALIZED.
+
+    \textbf{Salida:} respuesta con la solicitud cerrada.
+
+    \item \textbf{Notificación de resultado de revisión al alumno.}
+
+    El sistema debe notificar al alumno el resultado de la revisión una vez cerradas todas sus solicitudes.
+
+    \textbf{Entrada:} evento interno disparado cuando todas las solicitudes de una instancia pasan a estado cerrado.
+
+    \textbf{Proceso:} el sistema genera una notificación para el alumno indicando que la revisión ha concluido, incluyendo la información de su nota final.
+
+    \textbf{Salida:} notificación in-app creada y, si habilitado, correo electrónico enviado.
+
+  \end{functional}
+
+  % --- RF-13 ---
+  \item \textbf{Notificaciones.}
+
+  El sistema de notificaciones opera en dos canales: notificaciones in-app (almacenadas en la base de datos y consultables por el usuario mediante polling) y correo electrónico (espejo opcional de la notificación in-app, activable por cada usuario). El envío de correos se procesa de forma asíncrona mediante la cola de tareas. Las notificaciones se archivan en los cambios de curso. Existen además correos directos (bienvenida, restablecimiento de contraseña) que no generan notificación in-app.
+
+  \begin{functional}
+    \item \textbf{Creación de notificación in-app.}
+
+    El sistema debe crear notificaciones internas asociadas a eventos del dominio.
+
+    \textbf{Entrada:} evento interno del sistema (publicación de notas, apertura de revisión, asignación de corrección, resultado de revisión, incidencia de ingesta para coordinador, etc.).
+
+    \textbf{Proceso:} el sistema crea un registro de notificación en la base de datos con el tipo de evento, el mensaje, la fecha, el usuario destinatario y el estado de lectura (no leída por defecto).
+
+    \textbf{Salida:} notificación almacenada y disponible para consulta por el usuario destinatario.
+
+    \item \textbf{Envío de correo electrónico espejo.}
+
+    El sistema debe enviar un correo electrónico espejo para cada notificación in-app, si el usuario destinatario tiene habilitadas las notificaciones por correo.
+
+    \textbf{Entrada:} evento interno disparado tras la creación de una notificación in-app.
+
+    \textbf{Proceso:} el sistema verifica la preferencia de notificación del usuario. Si el correo está habilitado, encola una tarea asíncrona para enviar el correo con la plantilla correspondiente. El fallo en el envío del correo no afecta a la notificación in-app.
+
+    \textbf{Salida:} correo electrónico enviado al usuario, o registro de error en el log de aplicación si el envío falla.
+
+    \item \textbf{Marcado de notificación como leída.}
+
+    El sistema debe permitir al usuario marcar sus notificaciones como leídas.
+
+    \textbf{Entrada:} petición PATCH al recurso de la notificación (individual o masiva) con el nuevo estado de lectura.
+
+    \textbf{Proceso:} el sistema actualiza el estado de lectura de la notificación o notificaciones indicadas. Se permite el marcado masivo (marcar todas como leídas).
+
+    \textbf{Salida:} respuesta con el estado de lectura actualizado.
+
+    \item \textbf{Listado de notificaciones.}
+
+    El sistema debe permitir al usuario consultar sus notificaciones con paginación.
+
+    \textbf{Entrada:} petición GET al recurso de notificaciones propias con parámetros opcionales de filtrado (estado de lectura, tipo de evento) y paginación.
+
+    \textbf{Proceso:} el sistema recupera las notificaciones del usuario ordenadas por fecha descendente, aplicando los filtros indicados. Las notificaciones archivadas no aparecen en el listado por defecto.
+
+    \textbf{Salida:} respuesta con la lista paginada de notificaciones.
+
+    \item \textbf{Archivado de notificaciones en cambio de curso.}
+
+    El sistema debe archivar las notificaciones del curso anterior al ejecutar la transición de curso.
+
+    \textbf{Entrada:} evento interno disparado por la transición de curso.
+
+    \textbf{Proceso:} el sistema marca todas las notificaciones asociadas al curso archivado como archivadas.
+
+    \textbf{Salida:} notificaciones archivadas.
+
+    \item \textbf{Envío de correo directo.}
+
+    El sistema debe enviar correos electrónicos directos que no generan notificación in-app.
+
+    \textbf{Entrada:} evento interno de bienvenida con contraseña (usuario nuevo) o de restablecimiento de contraseña.
+
+    \textbf{Proceso:} el sistema encola una tarea asíncrona para enviar el correo con la plantilla correspondiente. Estos correos se envían siempre, independientemente de las preferencias de notificación del usuario.
+
+    \textbf{Salida:} correo electrónico enviado.
+
+    \item \textbf{Plantillas de correo electrónico y notificación.}
+
+    El sistema debe definir y gestionar plantillas de correo para los distintos tipos de notificaciones.
+
+    \textbf{Entrada:} no aplica directamente; este requisito define las plantillas que el sistema debe implementar.
+
+    \textbf{Proceso:} el sistema debe implementar las siguientes plantillas con soporte de internacionalización: bienvenida con contraseña, restablecimiento de contraseña, publicación de notas, apertura de revisión, solicitudes de revisión agrupadas (para corrector), asignación de corrección (para corrector), resultado de revisión (para alumno), incidencia de ingesta con páginas huérfanas o sin QR (para coordinador) y recordatorio de borrado automático (para gestor).
+
+    \textbf{Salida:} correos generados con el contenido y formato adecuados.
+
+  \end{functional}
+
+  % --- RF-14 ---
+  \item \textbf{Exportación y búsqueda.}
+
+  El sistema debe proporcionar capacidades de búsqueda avanzada para los gestores, permitiendo la exploración jerárquica del histórico del sistema (cursos → asignaturas → exámenes → instancias) y la exportación de datos en formatos estándar.
+
+  \begin{functional}
+    \item \textbf{Exportación de notas en formato institucional.}
+
+    El sistema debe permitir al coordinador exportar las calificaciones de un examen en un formato CSV compatible con los sistemas institucionales de actas.
+
+    \textbf{Entrada:} petición GET al recurso de exportación de notas del examen con parámetro de formato.
+
+    \textbf{Proceso:} el sistema genera un fichero CSV con la estructura adecuada (columnas para identificador del alumno, nombre, grupo, calificación). Se incluyen las calificaciones de todas las instancias del examen cuyo estado sea PUBLISHED o posterior. El formato de columnas es configurable por organización.
+
+    \textbf{Salida:} respuesta con el fichero CSV como descarga.
+
+    \item \textbf{Datos completos de calificaciones.}
+
+    El sistema debe permitir obtener los datos completos de calificaciones de un examen en formato estructurado.
+
+    \textbf{Entrada:} petición GET al recurso de calificaciones del examen.
+
+    \textbf{Proceso:} el sistema devuelve los datos completos de cada instancia: alumno (NIA, nombre), grupo, modelo, calificación de cada problema y nota total.
+
+    \textbf{Salida:} respuesta con los datos en formato JSON.
+
+    \item \textbf{Búsqueda jerárquica por gestor.}
+
+    El sistema debe permitir al gestor explorar el histórico de su organización de forma jerárquica: cursos → asignaturas → exámenes → instancias.
+
+    \textbf{Entrada:} petición GET a los recursos de asignaturas, exámenes o instancias con parámetros de filtrado y el identificador del curso.
+
+    \textbf{Proceso:} el sistema permite la navegación jerárquica dentro de la organización del gestor. Los resultados son de solo lectura para datos de cursos archivados.
+
+    \textbf{Salida:} respuesta con los datos del nivel consultado.
+
+    \item \textbf{Filtros avanzados sobre entidades.}
+
+    El sistema debe soportar filtros avanzados en los listados de todas las entidades principales.
+
+    \textbf{Entrada:} parámetros de filtrado en las peticiones GET a los recursos de listado. Los filtros disponibles varían según la entidad: usuarios (nombre, estado), asignaturas (nombre, código, cuatrimestre), exámenes (nombre, estado), instancias (alumno, grupo, modelo, estado, has\_issues, tipo de incidencia).
+
+    \textbf{Proceso:} el sistema aplica los filtros de forma combinable (AND) y devuelve los resultados paginados. Se soporta búsqueda parcial por texto en campos de nombre.
+
+    \textbf{Salida:} respuesta con los resultados paginados y los metadatos de paginación.
+
+    \item \textbf{Acceso a datos de cursos archivados.}
+
+    El sistema debe garantizar que los datos de cursos archivados permanecen accesibles en modo de solo lectura para los gestores de la organización.
+
+    \textbf{Entrada:} cualquier petición a recursos de un curso archivado.
+
+    \textbf{Proceso:} las operaciones de lectura se permiten con normalidad. Cualquier operación de escritura se rechaza.
+
+    \textbf{Salida:} datos en modo lectura, o error HTTP 403 si se intenta una escritura.
+
+  \end{functional}
+
+  % --- RF-15 ---
+  \item \textbf{Configuración y mantenimiento.}
+
+  El sistema expone un conjunto de parámetros de configuración global que los gestores pueden modificar en caliente para su organización, sin reinicio del servicio.
+
+  \begin{functional}
+    \item \textbf{Consulta de configuración de organización.}
+
+    El sistema debe permitir a un gestor consultar todos los parámetros de configuración de su organización.
+
+    \textbf{Entrada:} petición GET al recurso de configuración de la organización.
+
+    \textbf{Proceso:} el sistema recupera los valores actuales de todos los parámetros configurables: motor OCR por defecto, umbral de confianza de reconocimiento, tiempo de espera para páginas en ensamblado (segundos antes de detectar MISSING\_PAGE), duración máxima de audio (en minutos), tamaño máximo de PDF (en MB), frecuencia de borrado automático de exámenes archivados (en días o meses), días de antelación para la notificación de borrado, idioma por defecto de la organización, tiempo de expiración de URLs temporales de PDF (en minutos) y permisos por defecto de cada rol en asignaturas.
+
+    \textbf{Salida:} respuesta con el mapa completo de parámetros y sus valores actuales.
+
+    \item \textbf{Modificación de configuración de organización.}
+
+    El sistema debe permitir a un gestor modificar los parámetros de configuración de su organización sin necesidad de reiniciar el servicio.
+
+    \textbf{Entrada:} petición PATCH al recurso de configuración de la organización con los parámetros a modificar y sus nuevos valores.
+
+    \textbf{Proceso:} el sistema valida los nuevos valores y los aplica. La configuración se almacena en la base de datos con una capa de caché en Redis. Al modificar un parámetro, se invalida la caché correspondiente. Se registra la modificación en el log de auditoría.
+
+    \textbf{Salida:} respuesta con la configuración actualizada.
+
+    \item \textbf{Borrado automático programado de exámenes archivados.}
+
+    El sistema debe ejecutar periódicamente una tarea de borrado de exámenes archivados que hayan superado la antigüedad configurada por organización.
+
+    \textbf{Entrada:} tarea periódica programada según la frecuencia configurada.
+
+    \textbf{Proceso:} el sistema identifica, para cada organización, los exámenes cuyo curso archivado tiene una antigüedad superior a la configurada. Para cada examen identificado, se eliminan las instancias, sus ExamPage, anotaciones, calificaciones y los ficheros asociados en MinIO. Se preservan los registros del log de auditoría.
+
+    \textbf{Salida:} exámenes y ficheros eliminados. Registro de la operación en los logs.
+
+    \item \textbf{Notificación previa al borrado automático.}
+
+    El sistema debe notificar a los gestores de una organización con la antelación configurada antes de ejecutar un borrado automático.
+
+    \textbf{Entrada:} evaluación periódica que detecta que faltan X días para la ejecución del próximo borrado automático.
+
+    \textbf{Proceso:} el sistema genera una notificación dirigida a todos los gestores activos de la organización, informando de la fecha prevista del borrado y el número de exámenes afectados. Esta notificación se envía una única vez por cada ejecución de borrado programada.
+
+    \textbf{Salida:} notificación in-app creada para los gestores y, si habilitado, correo electrónico espejo.
+
+    \item \textbf{Modificación de permisos por defecto en asignaturas.}
+
+    El sistema debe permitir a un gestor modificar los permisos por defecto con los que se crean los roles de usuario en una asignatura.
+
+    \textbf{Entrada:} petición PATCH al recurso de configuración de la organización con los nuevos permisos por defecto, organizados por rol.
+
+    \textbf{Proceso:} el sistema valida que los nuevos valores son permisos reconocidos y los almacena. Los cambios solo afectan a las nuevas SubjectMembership creadas a partir de ese momento. Se registra la modificación en el log de auditoría.
+
+    \textbf{Salida:} respuesta con la configuración de permisos actualizada.
+
+  \end{functional}
+
+  % --- RF-16 ---
+  \item \textbf{Seguridad y auditoría.}
+
+  El sistema debe garantizar la protección de los datos sensibles mediante medidas técnicas específicas. El log de auditoría es un registro inmutable de escritura única que ningún rol puede modificar ni eliminar.
+
+  \begin{functional}
+    \item \textbf{Registro inmutable de eventos de auditoría.}
+
+    El sistema debe registrar de forma inmutable los eventos de negocio con impacto en datos.
+
+    \textbf{Entrada:} evento interno generado por cualquier operación auditada del sistema.
+
+    \textbf{Proceso:} el sistema registra cada evento en una tabla append-only de PostgreSQL. Cada registro incluye: organization\_id, tipo de evento, usuario actor, dirección IP de origen, marca temporal, entidad afectada, identificadores de la entidad y los datos relevantes del evento. Los eventos auditados incluyen: inicio y cierre de sesión, acceso a páginas escaneadas, lectura de datos sensibles (DNI descifrado), creación/modificación/eliminación de entidades principales, modificación de calificaciones, cambios de permisos y roles, operaciones de importación y exportación masiva, incidencias de ingesta, operaciones de gestión de páginas (reordenación, movimiento, eliminación), cambio de curso académico, modificación de configuración y ejecución de borrado automático.
+
+    \textbf{Salida:} registro de auditoría almacenado de forma permanente e inmutable.
+
+    \item \textbf{Consulta del log de auditoría.}
+
+    El sistema debe permitir a un gestor consultar el log de auditoría de su organización con filtros avanzados.
+
+    \textbf{Entrada:} petición GET al recurso del log de auditoría con parámetros opcionales de filtrado: rango de fechas, tipo de evento, usuario actor, entidad afectada, dirección IP y paginación.
+
+    \textbf{Proceso:} el sistema recupera los registros de la organización del gestor que cumplen los filtros, ordenados cronológicamente.
+
+    \textbf{Salida:} respuesta con la lista paginada de registros de auditoría.
+
+    \item \textbf{Cifrado de DNI en reposo.}
+
+    El sistema debe cifrar el DNI de los usuarios antes de almacenarlo en la base de datos.
+
+    \textbf{Entrada:} operación de creación o modificación de un usuario que incluya el campo DNI.
+
+    \textbf{Proceso:} el sistema cifra el valor del DNI mediante AES-256-GCM con una clave maestra almacenada como variable de entorno del sistema. Cada registro utiliza un nonce único. El descifrado se realiza solo cuando es necesario mostrar el DNI a un usuario autorizado.
+
+    \textbf{Salida:} DNI almacenado cifrado en la base de datos.
+
+    \item \textbf{Hash seguro de contraseñas.}
+
+    El sistema debe almacenar las contraseñas de los usuarios como hash con salt, utilizando un algoritmo resistente a ataques de fuerza bruta.
+
+    \textbf{Entrada:} contraseña en texto plano proporcionada durante la creación, importación o restablecimiento de contraseña.
+
+    \textbf{Proceso:} el sistema genera un salt aleatorio y aplica Argon2. Solo se almacenan el hash y el salt; la contraseña en texto plano se descarta inmediatamente.
+
+    \textbf{Salida:} contraseña almacenada como hash seguro.
+
+    \item \textbf{Marca de agua dinámica en páginas servidas a alumnos.}
+
+    El sistema debe aplicar una marca de agua dinámica a las páginas escaneadas cuando se sirven a alumnos, dificultando su redistribución.
+
+    \textbf{Entrada:} petición de acceso a una página escaneada por parte de un alumno.
+
+    \textbf{Proceso:} el sistema genera una versión de la página con una marca de agua que incluye datos identificativos del alumno (nombre, NIA) y una marca temporal. La generación se realiza en tiempo de petición o mediante caché. La página original en MinIO no se modifica.
+
+    \textbf{Salida:} página con marca de agua servida al alumno.
+
+    \item \textbf{Protección anti-descarga de páginas.}
+
+    El sistema debe dificultar la descarga no autorizada de páginas por parte de los alumnos.
+
+    \textbf{Entrada:} petición de visualización de una página por un alumno (cuando el permiso de descarga está desactivado).
+
+    \textbf{Proceso:} el sistema aplica todas o algunas de las siguientes medidas combinadas: URLs temporales con expiración corta (deben restringirse si o si cuando acaba la ventana de review (solo si el coordinador no ha permitido el acceso tras revisión)), marca de agua dinámica, cifrado simple del pdf en tránsito (cifrado con una clave derivada del identificador de sesión del usuario, que el frontend descifra en cliente), cabeceras HTTP anti-caché y cabecera Content-Disposition con valor inline. La watermark y el cifrado solo se realizarán si la descarga no está permitida en los permisos del examen.
+
+    \textbf{Salida:} página servida con todas las protecciones activas.
+
+  \end{functional}
+
+\end{functional}

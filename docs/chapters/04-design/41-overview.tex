@@ -1,0 +1,8 @@
+El backend del SCDEE adopta una arquitectura distribuida basada en
+contenedores, donde un núcleo de aplicación Django se comunica con servicios
+especializados de persistencia, mensajería, almacenamiento de objetos y
+procesamiento asíncrono. Esta organización permite escalar horizontalmente
+los componentes con mayor demanda computacional (reconocimiento de páginas,
+generación de \acsp{pdf}) sin comprometer la latencia de la \acs{api}, y
+satisface el requisito de despliegue mediante un único fichero
+\texttt{docker-compose.yml} (\cref{rnf:deployment}).

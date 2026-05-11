@@ -1,0 +1,6 @@
+Method,Name,Error,Occurrences
+GET,student/notifications,HTTPError('500 Server Error: Internal Server Error for url: student/notifications'),112
+GET,student/instance/download,CatchResponseError('HTTP 500'),102
+POST,student/review-request,HTTPError('500 Server Error: Internal Server Error for url: student/review-request'),10
+GET,student/instance/detail,HTTPError('500 Server Error: Internal Server Error for url: student/instance/detail'),105
+GET,student/profile,HTTPError('500 Server Error: Internal Server Error for url: student/profile'),195

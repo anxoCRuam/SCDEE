@@ -1,0 +1,43 @@
+El backend se despliega en local mediante \texttt{docker-compose},
+conforme al \cref{rnf:deployment}. Esta sección documenta las decisiones
+técnicas concretas que materializan ese despliegue; el manual operativo
+paso a paso se incluye en \cref{AP:INSTALLATION}.
+
+\begin{itemize}
+
+  \item \textbf{Imagen Docker compartida para los servicios Python.}
+  \acs{api}, \textit{worker} de Celery y Celery \textit{beat} ejecutan
+  código de la misma aplicación Django y comparten una única imagen
+  construida a partir de \texttt{python:3.12-slim}, con las dependencias
+  de sistema necesarias para los flujos críticos
+  (\texttt{libzbar0} para \acs{qr}, \texttt{poppler-utils} para
+  rasterización de \acsp{pdf}, \texttt{tesseract-ocr-spa} para \acs{ocr},
+  \texttt{libpq-dev} para psycopg). El contenedor se ejecuta con un
+  usuario sin privilegios de \textit{root} y el \texttt{Dockerfile}
+  instala dependencias antes que el código para optimizar el caché de
+  capas.
+
+  \item \textbf{Configuración por variables de entorno.} Toda la
+  configuración específica del entorno (credenciales de base de datos,
+  claves de cifrado, parámetros operativos, \acs{uri} del servidor
+  \acs{smtp}) se externaliza a un fichero \texttt{.env} que cada
+  despliegue puede personalizar sin reconstruir la imagen.
+
+  \item \textbf{Persistencia mediante volúmenes Docker.} PostgreSQL,
+  Redis, MinIO y la bandeja de ingesta usan volúmenes Docker nombrados
+  que sobreviven a los reinicios de los contenedores.
+
+  \item \textbf{Arranque ordenado mediante \textit{healthchecks}.} Cada
+  servicio de infraestructura (PostgreSQL, Redis, MinIO) define un
+  \textit{healthcheck} propio; los servicios de aplicación declaran
+  dependencias con condición \texttt{service\_healthy}, lo que garantiza
+  que el \acs{api} y los \textit{workers} sólo arrancan cuando sus
+  dependencias están operativas.
+
+  \item \textbf{Perfiles para separar entornos.} Los servicios de
+  monitorización descritos en \cref{SS:DES-COMPONENTS} viven en un
+  perfil aparte (\texttt{monitoring}), no se levantan por defecto y se
+  activan bajo demanda con
+  \texttt{docker-compose --profile monitoring up}.
+
+\end{itemize}

@@ -1,0 +1,12 @@
+MinIO es un servidor de almacenamiento de objetos compatible con la
+\ac{api} \ac{s3} de Amazon Web Services, distribuido bajo licencia AGPLv3
+\cite{minio}. A diferencia de un sistema de archivos tradicional, el
+almacenamiento de objetos organiza los datos como objetos identificados
+por una clave dentro de \textit{buckets} y se accede a ellos
+exclusivamente mediante HTTP. Es la opción adecuada para datos binarios
+de tamaño variable que no participan en consultas relacionales: en el
+SCDEE almacena las páginas escaneadas de los exámenes, los \acs{pdf} en
+blanco de los modelos y los binarios de las anotaciones (incluyendo
+audio). El uso del protocolo \acs{s3} permite, sin cambios en el código,
+sustituir MinIO en producción por Amazon Web Services \acs{s3} u otro
+servicio compatible.

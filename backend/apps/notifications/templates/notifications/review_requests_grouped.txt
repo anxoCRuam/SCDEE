@@ -1,0 +1,8 @@
+{% load i18n %}{% blocktrans with name=user.first_name %}Hi {{ name }},{% endblocktrans %}
+
+{% blocktrans with exam=exam_name count cnt=request_count %}The review window has closed for "{{ exam }}". You have {{ cnt }} review request to handle.{% plural %}The review window has closed for "{{ exam }}". You have {{ cnt }} review requests to handle.{% endblocktrans %}
+
+{% trans "Sign in to SCDEE to review and resolve them." %}
+
+{% trans "Best regards" %},
+SCDEE

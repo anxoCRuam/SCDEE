@@ -17,3 +17,30 @@ def _enable_db_access_for_all_tests(db: None) -> None:
     For tests that genuinely don't need the DB, the overhead is negligible
     since pytest-django uses transactions that are rolled back.
     """
+
+
+@pytest.fixture(autouse=True)
+def _reset_runtime_caches() -> None:
+    """Clear Redis-backed runtime state between tests.
+
+    DRF throttles, the JWT blacklist and the OrganizationConfig cache
+    all live in Django's default cache (Redis). Without this reset, a
+    test that hits the login endpoint 10 times pushes every subsequent
+    test past the LoginRateThrottle (10/min) and causes a wave of 429s
+    that look like unrelated failures. Tests that specifically need to
+    exercise these caches can populate them in their own setUp.
+    """
+    from django.core.cache import cache
+
+    cache.clear()
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        (
+            "reliability: marks reliability suites that consume larger "
+            "fixtures (OCR datasets, etc.). Slow by nature; not run by "
+            "default in tight CI loops."
+        ),
+    )

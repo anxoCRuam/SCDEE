@@ -1,0 +1,6 @@
+{% load i18n %}{% blocktrans with name=user.first_name %}Hi {{ name }},{% endblocktrans %}
+
+{% blocktrans with new=new_course_label old=archived_course_label %}The transition from course {{ old }} to {{ new }} has been completed.{% endblocktrans %}
+
+{% trans "Best regards" %},
+SCDEE

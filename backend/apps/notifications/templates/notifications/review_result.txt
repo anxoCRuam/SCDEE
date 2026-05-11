@@ -1,0 +1,11 @@
+{% load i18n %}{% blocktrans with name=user.first_name %}Hi {{ name }},{% endblocktrans %}
+
+{% blocktrans with exam=exam_name %}The review for the exam "{{ exam }}" has concluded.{% endblocktrans %}
+{% if total_score %}
+{% blocktrans with score=total_score %}Your final grade is: {{ score }}.{% endblocktrans %}
+{% endif %}
+
+{% trans "You can review the details by signing in to SCDEE." %}
+
+{% trans "Best regards" %},
+SCDEE

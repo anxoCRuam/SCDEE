@@ -46,6 +46,8 @@ htmlcov/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+ingestion_inbox/
+tmp/
 
 # OS
 .DS_Store

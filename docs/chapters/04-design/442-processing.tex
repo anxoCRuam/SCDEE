@@ -1,0 +1,24 @@
+La tarea \texttt{ingest\_page\_task} recibe un fichero indeterminado, ya
+sea un \acs{pdf} de varias páginas o una imagen \textit{raster} en PNG,
+JPEG o TIFF, y lo transforma en un conjunto homogéneo de imágenes listas
+para reconocimiento. La etapa se compone de tres pasos:
+
+\begin{enumerate}
+  \item \textbf{Validación.} Se descarta el fichero si excede el tamaño
+  máximo configurado.
+
+  \item \textbf{Normalización a PNG.} Si el fichero es \acs{pdf}, cada una
+  de sus páginas se rasteriza a PNG a 200 dpi; si es una imagen
+  \textit{raster}, se convierte a PNG cuando no lo es ya. El resultado es
+  siempre una lista de imágenes PNG independientes, una por página.
+
+  \item \textbf{Almacenamiento y materialización.} Cada imagen se sube a
+  MinIO; a continuación se crea un \texttt{ExamPage} en estado
+  \texttt{PENDING\_RECOGNITION} con la referencia al objeto almacenado y,
+  finalmente, se encola una tarea \texttt{recognize\_page\_task} por
+  página en la cola \texttt{recognition}.
+\end{enumerate}
+
+La separación entre detección y procesamiento permite que el mismo
+servicio sea reusable desde un \textit{endpoint} \acs{http} de subida
+manual.

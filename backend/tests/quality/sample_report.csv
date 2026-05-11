@@ -1,0 +1,7 @@
+filename,zone_type,style,source,expected,actual,ocr_confidence,exact,within_budget,char_accuracy,distance,roster_matched,roster_correct,roster_confidence
+nia_clean_01.png,NIA,printed,synthetic,1234567,1234567,0.960,1,1,1.000,0,1,1,0.950
+nia_noisy_01.png,NIA,handwriting_sim,synthetic,9876543,9876543,0.960,1,1,1.000,0,1,1,0.950
+dni_clean_01.png,DNI,printed,synthetic,12345678A,12345678A,0.910,1,1,1.000,0,1,1,0.900
+dni_noisy_01.png,DNI,handwriting_sim,synthetic,87654321Z,87654321Z,0.830,1,1,1.000,0,1,1,0.900
+name_clean_01.png,NAME,printed,synthetic,MARIA GARCIA,MARIA GARCIA,0.960,1,1,1.000,0,1,1,1.000
+name_noisy_01.png,NAME,handwriting_sim,synthetic,JUAN PEREZ LOPEZ,JUAN PEREZ LC,0.947,0,1,0.750,4,1,1,0.750

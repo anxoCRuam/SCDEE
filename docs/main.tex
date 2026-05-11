@@ -1,203 +1,288 @@
+% =============================================================================
+%  Memoria del TFG — Backend de Sistema de Corrección Digital de Exámenes Escritos
+%  Autor: Anxo Canay Reguera
+%  Tutor: Eloy Anguiano Rey
+%  Grado en Ingeniería Informática — EPS, Universidad Autónoma de Madrid
+%  Curso: 2025/2026
+% =============================================================================
+%  Receta de compilación local (orden):
+%    pdflatex main
+%    bibtex   main
+%    makeglossaries main
+%    makeindex -s main.ist main
+%    pdflatex main
+%    pdflatex main
+% =============================================================================
+
 % arara: clean: {files: [main.aux, main.idx, main.ilg, main.ind, main.bbl, main.bcf, main.blg, main.run.xml, main.fdb_latexmk, main.fls, main.loe, main.lof, main.lol, main.lot, main.ltb, main.out, main.toc, main.upa, main.upb, main.acn, main.acr, main.alg, main.glg, main.glo, main.gls, main.glsdefs, main.xdy, main.loa, main.gnuploterrors, main.mw]}
-% arara: pdflatex: {shell: yes}
+% arara: pdflatex
 % arara: makeglossaries
 % arara: makeindex: {style: main.ist}
 % arara: bibtex
-% arara: pdflatex: {shell: yes}
-% arara: pdflatex: {shell: yes}
+% arara: pdflatex
+% arara: pdflatex
+
+
+\documentclass[epsbased,tfg,covers,final,printable,extendedindex,%
+               firstnumbered,lof,lot,loc,loa]{tfgtfmthesisuam}
+
 
 % =============================================================================
-% TFG: Backend de Sistema de Corrección Digital de Exámenes Escritos (SCDEE/B)
-% Autor: Anxo Canay Reguera
-% Tutor: Eloy Anguiano Rey
-% Grado en Ingeniería Informática — EPS, UAM
+%  Preámbulo: metadatos, acrónimos y definiciones (modular)
 % =============================================================================
-
-\documentclass[
-  epsbased,           % Imagen institucional EPS
-  tfg,                % Trabajo Fin de Grado
-  copyright,          % Copyright estándar
-  covers,             % Cubiertas institucionales
-  final,              % Sin marca de agua
-  printable,          % Márgenes asimétricos para encuadernación
-  extendedindex,      % Índice con subapartados
-  firstnumbered,      % Numerar primeras páginas de capítulo
-  lof,                % Lista de figuras
-  lot,                % Lista de tablas
-  loc                 % Lista de códigos
-  % loa,              % Lista de algoritmos (descomentar si hay >=3 algoritmos)
-]{tfgtfmthesisuam}
-
-% =============================================================================
-% METADATOS DEL DOCUMENTO
-% =============================================================================
-
-\title[SCDEE/B]{Backend de Sistema de Corrección Digital de Exámenes Escritos}
-% \subtitle{}  % Descomentar y completar si se necesita subtítulo
-\author{Anxo Canay Reguera}
-\advisor{Eloy Anguiano Rey}
-\levelin{Grado en Ingeniería Informática}
-\copyrightdate{2026}
-
-% TODO: Sustituir ??
-\privateaddress{C\textbackslash\ Francisco Tomás y Valiente N\textsuperscript{o} 11}
-
-% =============================================================================
-% DEDICATORIA Y CITA CÉLEBRE
-% =============================================================================
-
-% TODO: Escribir la dedicatoria personal
-\dedication{A quienes me han acompañado en este camino...}
-
-% TODO: Elegir una cita célebre. Algunas opciones:
-%   - ``Talk is cheap. Show me the code.'' — Linus Torvalds
-%   - ``First, solve the problem. Then, write the code.'' — John Johnson
-%   - ``It works on my machine. Then we'll ship your machine.'' — Anónimo
-%   - Cualquier otra que te guste
-\famouscite{``Placeholder de la cita célebre.'' \\[0.1em] \begin{flushright}Autor\end{flushright}}
-
-% =============================================================================
-% FICHEROS DE SECCIONES PRELIMINARES
-% =============================================================================
-
-\resumenfile{frontmatter/resumen}
-\abstractfile{frontmatter/abstract}
-\ackfile{frontmatter/acknowledgements}
-% \prefacefile{frontmatter/preface}  % Opcional, descomentar si se necesita
-
-% =============================================================================
-% DATOS DE PORTADA
-% =============================================================================
-
-\coverdata
-{
-  Escuela Politécnica Superior \\
-  Universidad Autónoma de Madrid \\
-  C\textbackslash Francisco Tomás y Valiente n\textsuperscript{o} 11
-}
-
-% =============================================================================
-% PALABRAS CLAVE (se insertan al final de resumen.tex y abstract.tex)
-% =============================================================================
-% Nota: \palabrasclave y \keywords se definen dentro de los ficheros
-%       frontmatter/resumen.tex y frontmatter/abstract.tex respectivamente.
-
-% =============================================================================
-% BIBLIOGRAFÍA
-% =============================================================================
-
-\bibliographyconfig[IEEEtran]{bibliography}
-
-% =============================================================================
-% DIRECTORIOS DE RECURSOS
-% =============================================================================
-
-\graphicsdir{figures}
-\logosdir{figures}
-\codesdir{codes}
-\datadir{data}
-
-% =============================================================================
-% METADATOS DEL PDF
-% =============================================================================
-
-\pdfmetavalues
-  {Anxo Canay Reguera}
-  {Backend de Sistema de Corrección Digital de Exámenes Escritos}
-  {TFG}
-  {corrección digital, exámenes, OCR, Django, backend, sistema distribuido}
-
-% =============================================================================
-% ACRÓNIMOS Y DEFINICIONES
-% =============================================================================
-
+\input{preamble/metadata}
 \input{preamble/acronyms}
 \input{preamble/definitions}
 
-% =============================================================================
-% CUERPO DEL DOCUMENTO
-% =============================================================================
 
+% =============================================================================
+%  Documento
+% =============================================================================
 \begin{document}
 
-% -----------------------------------------------------------------------------
-% Capítulo 1: Introducción (~3-4 páginas)
-% \section{\texorpdfstring{Árboles de decisión}{Arboles de decision}} ??
-% -----------------------------------------------------------------------------
-\chapter{Introducción\label{ch:introduction}}{chapters/introduction/introduction}
-  \section{Motivación\label{sec:motivation}}{chapters/introduction/motivation}
-  \section{Objetivos\label{sec:objectives}}{chapters/introduction/objectives}
-  \section{Estructura del documento\label{sec:doc_structure}}{chapters/introduction/document_structure}
-% -----------------------------------------------------------------------------
-% Capítulo 2: Estado del arte (~4-5 páginas)
-% -----------------------------------------------------------------------------
-\chapter{Estado del arte\label{ch:state_of_art}}{chapters/state_of_art/state_of_art}
-  \section{Sistemas de corrección de exámenes\label{sec:correction_systems}}{chapters/state_of_art/correction_systems}
-  \section{Tecnologías y herramientas\label{sec:technologies}}{chapters/state_of_art/technologies}
-  \section{Conclusiones del estado del arte\label{sec:sota_conclusions}}{chapters/state_of_art/sota_conclusions}
 
 % -----------------------------------------------------------------------------
-% Capítulo 3: Análisis de requisitos (~5-6 páginas)
-% Nota: las secciones se definen dentro de requirements.tex porque los
-%       requisitos ya tienen estructura interna propia con \section.
+%  Capítulo 1 — Introducción
 % -----------------------------------------------------------------------------
-\chapter{Análisis de requisitos\label{ch:requirements}}{chapters/requirements/requirements}
+\chapter{Introducción\label{CAP:INTRODUCTION}}
+  \section{Motivación\label{SEC:INTRO-MOTIVATION}}%
+          {chapters/01-introduction/11-motivation}
+  \section{Objetivos\label{SEC:INTRO-OBJECTIVES}}%
+          {chapters/01-introduction/12-objectives}
+  \section[Contexto del proyecto y coordinación]%
+          {Contexto del proyecto y coordinación con el \acs{tfg} de
+           \textit{frontend}\label{SEC:INTRO-CONTEXT}}%
+          {chapters/01-introduction/13-context}
+  \section{Estructura del documento\label{SEC:INTRO-STRUCTURE}}%
+          {chapters/01-introduction/14-structure}
+
 
 % -----------------------------------------------------------------------------
-% Capítulo 4: Diseño del sistema (~8-10 páginas)
+%  Capítulo 2 — Estado del arte
 % -----------------------------------------------------------------------------
-\chapter{Diseño del sistema\label{ch:design}}{chapters/design/design}
-  \section{Arquitectura del sistema\label{sec:architecture}}{chapters/design/architecture}
-  \section{Modelo de datos\label{sec:data_model}}{chapters/design/data_model}
-  \section{Diseño de la API REST\label{sec:api_design}}{chapters/design/api_design}
-  \section{Sistema de autenticación \textit{pluggable}\label{sec:auth_system}}{chapters/design/auth_system}
-  \section{Pipeline de ingesta y OCR\label{sec:ocr_pipeline}}{chapters/design/ocr_pipeline}
-  \section{Ciclo de vida del examen\label{sec:exam_lifecycle}}{chapters/design/exam_lifecycle}
+\chapter{Estado del arte\label{CAP:STATE-OF-THE-ART}}
+  \section[Plataformas de corrección digital]%
+          {Plataformas de corrección digital de
+           exámenes\label{SEC:SOTA-PLATFORMS}}%
+          {chapters/02-state-of-the-art/21-platforms}
+    \subsection{Crowdmark\label{SS:SOTA-CROWDMARK}}%
+                {chapters/02-state-of-the-art/211-crowdmark}
+    \subsection{Gradescope\label{SS:SOTA-GRADESCOPE}}%
+                {chapters/02-state-of-the-art/212-gradescope}
+    \subsection{Akindi\label{SS:SOTA-AKINDI}}%
+                {chapters/02-state-of-the-art/213-akindi}
+    \subsection[Integración con los LMS]%
+                {El papel central de la integración con los \emph{Learning
+                 Management Systems}\label{SS:SOTA-LMS}}%
+                {chapters/02-state-of-the-art/214-lms}
+    \subsection[Corrección asistida por modelos de lenguaje]%
+                {La ola de la corrección asistida por modelos de
+                 lenguaje\label{SS:SOTA-LLM}}%
+                {chapters/02-state-of-the-art/215-llm}
+    \subsection{Posicionamiento del SCDEE\label{SS:SOTA-POSITIONING}}%
+                {chapters/02-state-of-the-art/216-positioning}
+  \section{Tecnologías base\label{SEC:SOTA-TECH}}%
+          {chapters/02-state-of-the-art/22-technologies}
+    \subsection[Django y DRF]%
+                {Django y Django {REST} Framework\label{SS:SOTA-DJANGO}}%
+                {chapters/02-state-of-the-art/221-django}
+    \subsection{PostgreSQL\label{SS:SOTA-POSTGRES}}%
+                {chapters/02-state-of-the-art/222-postgresql}
+    \subsection{Celery y Redis\label{SS:SOTA-CELERY}}%
+                {chapters/02-state-of-the-art/223-celery}
+    \subsection{MinIO\label{SS:SOTA-MINIO}}%
+                {chapters/02-state-of-the-art/224-minio}
+    \subsection{Tesseract y EasyOCR\label{SS:SOTA-OCR}}%
+                {chapters/02-state-of-the-art/225-ocr}
+  \section{Conceptos transversales\label{SEC:SOTA-CROSS}}%
+          {chapters/02-state-of-the-art/23-cross-concepts}
+    \subsection[Patrones multi-tenant]%
+                {Patrones \textit{multi-tenant}\label{SS:SOTA-MULTITENANT}}%
+                {chapters/02-state-of-the-art/231-multitenancy}
+    \subsection[Arquitecturas basadas en plugins]%
+                {Arquitecturas basadas en
+                 \emph{plugins}\label{SS:SOTA-PLUGINS}}%
+                {chapters/02-state-of-the-art/232-plugins}
+
 
 % -----------------------------------------------------------------------------
-% Capítulo 5: Implementación (~8-10 páginas)
+%  Capítulo 3 — Análisis
 % -----------------------------------------------------------------------------
-\chapter{Implementación\label{ch:implementation}}{chapters/implementation/implementation}
-  \section{Metodología de desarrollo\label{sec:methodology}}{chapters/implementation/methodology}
-  \section{Desarrollo por subsistemas\label{sec:subsystems}}{chapters/implementation/subsystems}
-  \section{Aspectos técnicos relevantes\label{sec:technical_details}}{chapters/implementation/technical_details}
+\chapter{Análisis\label{CAP:ANALYSIS}}
+  \section{Proceso de análisis y actores\label{SEC:ANALYSIS-PROCESS}}%
+          {chapters/03-analysis/31-process}
+  \section{Requisitos funcionales\label{SEC:ANALYSIS-RF}}%
+          {chapters/03-analysis/32-functional}
+  \section{Requisitos no funcionales\label{SEC:ANALYSIS-RNF}}%
+          {chapters/03-analysis/33-nonfunctional}
+
 
 % -----------------------------------------------------------------------------
-% Capítulo 6: Pruebas y validación (~4-5 páginas)
+%  Capítulo 4 — Diseño
 % -----------------------------------------------------------------------------
-\chapter{Pruebas y validación\label{ch:testing}}{chapters/testing/testing}
-  \section{Estrategia de pruebas\label{sec:test_strategy}}{chapters/testing/strategy}
-  \section{Pruebas unitarias\label{sec:unit_tests}}{chapters/testing/unit_tests}
-  \section{Pruebas de integración\label{sec:integration_tests}}{chapters/testing/integration_tests}
-  \section{Pruebas de carga\label{sec:load_tests}}{chapters/testing/load_tests}
-  \section{Resumen de resultados\label{sec:test_results}}{chapters/testing/results_summary}
+\chapter{Diseño\label{CAP:DESIGN}}{chapters/04-design/intro}
+  \section{Arquitectura general\label{SEC:DES-OVERVIEW}}%
+          {chapters/04-design/41-overview}
+    \subsection{Componentes\label{SS:DES-COMPONENTS}}%
+                {chapters/04-design/411-components}
+    \subsection{Modelo de despliegue\label{SS:DES-DEPLOYMENT}}%
+                {chapters/04-design/412-deployment}
+  \section[Modelo de datos y multi-tenant]%
+          {Modelo de datos y aislamiento
+           \dfn{multitenant}\label{SEC:DES-DATA}}%
+          {chapters/04-design/42-data}
+    \subsection{Estructura del modelo\label{SS:DES-MODEL-STRUCTURE}}%
+                {chapters/04-design/421-structure}
+    \subsection{Visión global del modelo\label{SS:DES-MODEL-OVERVIEW}}%
+                {chapters/04-design/422-overview}
+    \subsection[Aislamiento multi-tenant]%
+                {Aislamiento \dfn{multitenant}%
+                 \label{SS:DES-MODEL-ISOLATION}}%
+                {chapters/04-design/423-isolation}
+  \section[Capa de servicios y arquitectura modular]%
+          {Capa de servicios y arquitectura
+           modular\label{SEC:DES-LAYERS}}%
+          {chapters/04-design/43-layers}
+    \subsection[Arquitectura por capas]%
+                {Arquitectura por capas con
+                 \textit{Service Layer}\label{SS:DES-SERVICE-LAYER}}%
+                {chapters/04-design/431-service-layer}
+    \subsection[Aplicaciones Django]%
+                {Organización modular en aplicaciones
+                 Django\label{SS:DES-APPS}}%
+                {chapters/04-design/432-apps}
+    \subsection[Plugins intercambiables]%
+                {\dfnpl{plugin} intercambiables\label{SS:DES-PLUGINS}}%
+                {chapters/04-design/433-plugins}
+  \section[Pipeline de ingesta y reconocimiento]%
+          {\textit{Pipeline} de ingesta y
+           reconocimiento\label{SEC:DES-INGEST}}%
+          {chapters/04-design/44-pipeline}
+    \subsection{Detección y encolado\label{SS:DES-INGEST-DETECTION}}%
+                {chapters/04-design/441-detection}
+    \subsection{Procesamiento\label{SS:DES-INGEST-PROCESSING}}%
+                {chapters/04-design/442-processing}
+    \subsection{Reconocimiento\label{SS:DES-INGEST-RECOGNITION}}%
+                {chapters/04-design/443-recognition}
+    \subsection{Asignación\label{SS:DES-INGEST-ASSIGNMENT}}%
+                {chapters/04-design/444-assignment}
+  \section{Ciclo de vida de las instancias\label{SEC:DES-LIFECYCLE}}%
+          {chapters/04-design/45-lifecycle}
+  \section{Operaciones del sistema\label{SEC:DES-OPS}}%
+          {chapters/04-design/46-operations}
+    \subsection{Configuración del examen\label{SS:DES-OPS-EXAM}}%
+                {chapters/04-design/461-exam-config}
+    \subsection[Convocatoria y asignación de correctores]%
+                {Convocatoria y asignación de
+                 correctores\label{SS:DES-OPS-CONVOCATION}}%
+                {chapters/04-design/462-convocation-correctors}
+    \subsection{Anotaciones y calificación\label{SS:DES-OPS-ANNOT}}%
+                {chapters/04-design/463-annotations-grading}
+    \subsection{Operaciones de organización\label{SS:DES-OPS-ORG}}%
+                {chapters/04-design/464-organization-ops}
+  \section{Seguridad y cumplimiento\label{SEC:DES-SECURITY}}%
+          {chapters/04-design/47-security}
+  \section[API REST y contrato de integración]%
+          {\acs{api} \acs{rest} y contrato de
+           integración\label{SEC:DES-API}}%
+          {chapters/04-design/48-api}
+
 
 % -----------------------------------------------------------------------------
-% Capítulo 7: Conclusiones y trabajo futuro (~2 páginas)
+%  Capítulos 5-7 — Implementación, Pruebas y Conclusiones (placeholders)
 % -----------------------------------------------------------------------------
-\chapter{Conclusiones y trabajo futuro\label{ch:conclusions}}{chapters/conclusions/conclusions}
-  \section{Conclusiones\label{sec:conclusions}}{chapters/conclusions/achieved_objectives}
-  \section{Trabajo futuro\label{sec:future_work}}{chapters/conclusions/future_work}
+\chapter{Implementación\label{CAP:IMPLEMENTATION}}
+  \section{Metodología y plan de trabajo\label{SEC:IMPL-METHODOLOGY}}%
+          {chapters/05-implementation/51-methodology}
+    \subsection{Metodología seguida\label{SS:IMPL-METHOD}}%
+                {chapters/05-implementation/511-method}
+    \subsection{Plan de trabajo\label{SS:IMPL-PLAN}}%
+                {chapters/05-implementation/512-plan}
+    \subsection{Cronograma\label{SS:IMPL-GANTT}}%
+                {chapters/05-implementation/513-gantt}
+  \section{Entorno y herramientas\label{SEC:IMPL-TOOLING}}%
+          {chapters/05-implementation/52-tooling}
+  \section[Aspectos críticos de implementación]%
+          {Aspectos críticos de
+           implementación\label{SEC:IMPL-CRITICAL}}%
+          {chapters/05-implementation/53-critical}
+  \section{Despliegue\label{SEC:IMPL-DEPLOYMENT}}%
+          {chapters/05-implementation/54-deployment}
+\chapter{Pruebas y validación\label{CAP:TESTING}}%
+        {chapters/06-testing/intro}
+  \section{Estructura de pruebas\label{SEC:TEST-STRUCTURE}}%
+          {chapters/06-testing/61-test-structure}
+  \section{Cobertura\label{SEC:TEST-COVERAGE}}%
+          {chapters/06-testing/62-coverage}
+  \section{Pruebas de carga\label{SEC:TEST-LOAD}}%
+          {chapters/06-testing/63-load-tests}
+  \section[Calidad del reconocimiento óptico]%
+          {Calidad del reconocimiento
+           óptico\label{SEC:TEST-OCR-QUALITY}}%
+          {chapters/06-testing/64-ocr-quality}
+  \section{Validación funcional\label{SEC:TEST-FUNCTIONAL}}%
+          {chapters/06-testing/65-functional}
+\chapter{Conclusiones y trabajo futuro\label{CAP:CONCLUSIONS}}
+  \section{Conclusiones\label{SEC:CONCL-CONCLUSIONS}}%
+          {chapters/07-conclusions/71-conclusions}
+  \section{Trabajo futuro\label{SEC:CONCL-FUTURE-WORK}}%
+          {chapters/07-conclusions/72-future-work}
 
-% =============================================================================
-% APÉNDICES
-% =============================================================================
 
+% -----------------------------------------------------------------------------
+%  Apéndices
+% -----------------------------------------------------------------------------
 \appendix
 
-% -----------------------------------------------------------------------------
-% Apéndice A: Requisitos globales del sistema (frontend + backend + comunes)
-% -----------------------------------------------------------------------------
-\chapter{Requisitos globales del sistema\label{ap:global_requirements}}{appendices/global_requirements}
+\chapter{Requisitos del sistema\label{AP:REQUIREMENTS}}%
+        {appendices/A-system-requirements/A-overview}
+  \section{Requisitos funcionales\label{SEC:REQ-FUNCTIONAL}}%
+          {appendices/A-system-requirements/A1-functional}
+  \section{Requisitos no funcionales\label{SEC:REQ-NONFUNCTIONAL}}%
+          {appendices/A-system-requirements/A2-nonfunctional}
 
-% -----------------------------------------------------------------------------
-% Apéndice B: Manual de instalación y despliegue
-% -----------------------------------------------------------------------------
-\chapter{Manual de instalación y despliegue\label{ap:deployment}}{appendices/deployment_manual}
+\chapter{Manual de instalación y despliegue\label{AP:INSTALLATION}}%
+        {appendices/B-installation/B-overview}
+  \section{Prerrequisitos\label{SEC:INSTALL-PRE}}%
+          {appendices/B-installation/B1-prerequisites}
+  \section{Configuración inicial\label{SEC:INSTALL-CONFIG}}%
+          {appendices/B-installation/B2-configuration}
+  \section{Primera ejecución\label{SEC:INSTALL-FIRST-RUN}}%
+          {appendices/B-installation/B3-first-run}
+  \section{Operaciones habituales\label{SEC:INSTALL-OPS}}%
+          {appendices/B-installation/B4-common-ops}
+  \section{Acceso a los servicios\label{SEC:INSTALL-SERVICES}}%
+          {appendices/B-installation/B5-services-access}
+  \section{\textit{Reset} del entorno\label{SEC:INSTALL-RESET}}%
+          {appendices/B-installation/B6-reset}
 
-% -----------------------------------------------------------------------------
-% Apéndice C: Resultados detallados de pruebas
-% -----------------------------------------------------------------------------
-\chapter{Resultados detallados de pruebas\label{ap:detailed_results}}{appendices/detailed_results}
+\chapter{Resultados detallados de pruebas\label{AP:TEST-RESULTS}}%
+        {appendices/C-detailed-test-results/C-overview}
+  \section{Pruebas de carga\label{SEC:CDETAIL-LOAD}}%
+          {appendices/C-detailed-test-results/C1-load-tests}
+  \section[Cobertura por aplicación]%
+          {Cobertura por aplicación\label{SEC:CDETAIL-COVERAGE}}%
+          {appendices/C-detailed-test-results/C2-coverage}
+  \section[Calidad del reconocimiento óptico]%
+          {Calidad del reconocimiento óptico\label{SEC:CDETAIL-OCR}}%
+          {appendices/C-detailed-test-results/C3-ocr-quality}
+
+\chapter{Catálogo de servicios por aplicación\label{AP:SERVICES}}%
+        {appendices/D-services/D-overview}
+
+\chapter{Especificación OpenAPI\label{AP:OPENAPI}}%
+        {appendices/E-openapi/E-overview}
+  \section{Catálogo de recursos\label{SEC:OPENAPI-CATALOG}}%
+          {appendices/E-openapi/E1-catalog}
+  \section{Acceso a la especificación\label{SEC:OPENAPI-ACCESS}}%
+          {appendices/E-openapi/E2-access}
+
+\chapter{Diagramas de clase completos\label{AP:CLASS-DIAGRAMS}}%
+        {appendices/F-class-diagrams/F-overview}
+  \section{Diagramas por subdominio\label{SEC:CLASS-BY-DOMAIN}}%
+          {appendices/F-class-diagrams/F1-by-domain}
+  \section{Vista global\label{SEC:CLASS-GLOBAL}}%
+          {appendices/F-class-diagrams/F2-global}
+
 
 \end{document}

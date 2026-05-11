@@ -1,73 +1,76 @@
-% preamble/acronyms.tex
-% Definición centralizada de todos los acrónimos del documento.
-% Usar \ac{label} en primera aparición, \acs{label} para forma corta.
-% ============================================================================
+% =============================================================================
+%  Acrónimos
+% =============================================================================
+%  Uso (en el cuerpo del texto):
+%    \ac{label}   →  primera vez: "Forma larga (FL)"; resto: "FL"
+%    \acs{label}  →  siempre forma corta
+%    \acl{label}  →  siempre forma larga
+%
+%  Mantener orden alfabético por acrónimo dentro de cada bloque temático.
+%  TODO: revisar y ampliar tras redactar el cuerpo.
+% =============================================================================
 
-% --- Acrónimos del proyecto ---
-\newacronym{scdee}{SCDEE}{Sistema de Corrección Digital de Exámenes Escritos}
-
-% --- Protocolos y estándares web ---
+% --- Generales ----------------------------------------------------------------
 \newacronym{api}{API}{Application Programming Interface}
-\newacronym{rest}{REST}{Representational State Transfer}
-\newacronym{http}{HTTP}{HyperText Transfer Protocol}
-\newacronym{https}{HTTPS}{HyperText Transfer Protocol Secure}
-\newacronym{cors}{CORS}{Cross-Origin Resource Sharing}
-\newacronym{jwt}{JWT}{JSON Web Token}
-\newacronym{tls}{TLS}{Transport Layer Security}
-\newacronym{smtp}{SMTP}{Simple Mail Transfer Protocol}
-\newacronym{sftp}{SFTP}{SSH File Transfer Protocol}
-\newacronym{xss}{XSS}{Cross-Site Scripting}
-\newacronym{crud}{CRUD}{Create, Read, Update, Delete}
-\newacronym{sso}{SSO}{Single Sign-On}
-\newacronym{oauth2}{OAuth2}{Open Authorization 2.0}
-\newacronym{saml}{SAML}{Security Assertion Markup Language}
-\newacronym{oidc}{OIDC}{OpenID Connect}
-
-% --- Formatos de datos ---
-\newacronym{json}{JSON}{JavaScript Object Notation}
+\newacronym{cli}{CLI}{Command Line Interface}
 \newacronym{csv}{CSV}{Comma-Separated Values}
+\newacronym{eps}{EPS}{Escuela Politécnica Superior}
+\newacronym{http}{HTTP}{Hypertext Transfer Protocol}
+\newacronym{ip}{IP}{Internet Protocol}
+\newacronym{json}{JSON}{JavaScript Object Notation}
 \newacronym{pdf}{PDF}{Portable Document Format}
+\newacronym{rest}{REST}{Representational State Transfer}
+\newacronym{sftp}{SFTP}{SSH File Transfer Protocol}
+\newacronym{smtp}{SMTP}{Simple Mail Transfer Protocol}
+\newacronym{spa}{SPA}{Single Page Application}
+\newacronym{ssl}{SSL}{Secure Sockets Layer}
+\newacronym{tfg}{TFG}{Trabajo Fin de Grado}
+\newacronym{uam}{UAM}{Universidad Autónoma de Madrid}
+\newacronym{uri}{URI}{Uniform Resource Identifier}
+\newacronym{uuid}{UUID}{Universally Unique Identifier}
 \newacronym{yaml}{YAML}{YAML Ain't Markup Language}
-\newacronym{svg}{SVG}{Scalable Vector Graphics}
 \newacronym{url}{URL}{Uniform Resource Locator}
 
-% --- Tecnologías y frameworks ---
+% --- Identificación y datos personales ----------------------------------------
+\newacronym{dni}{DNI}{Documento Nacional de Identidad}
+\newacronym{nia}{NIA}{Número de Identificación de Alumno}
+
+% --- Educación e interoperabilidad académica ----------------------------------
+\newacronym{ldap}{LDAP}{Lightweight Directory Access Protocol}
+\newacronym{lms}{LMS}{Learning Management System}
+\newacronym{lti}{LTI}{Learning Tools Interoperability}
+
+% --- Inteligencia artificial --------------------------------------------------
+\newacronym{ia}{IA}{Inteligencia Artificial}
+\newacronym{llm}{LLM}{Large Language Model}
+
+% --- Backend, frameworks y patrones -------------------------------------------
 \newacronym{drf}{DRF}{Django REST Framework}
 \newacronym{orm}{ORM}{Object-Relational Mapping}
-\newacronym{ocr}{OCR}{Optical Character Recognition}
-\newacronym{sql}{SQL}{Structured Query Language}
-\newacronym{siem}{SIEM}{Security Information and Event Management}
-\newacronym{asr}{ASR}{Automatic Speech Recognition}
-\newacronym{ttl}{TTL}{Time To Live}
+\newacronym{wsgi}{WSGI}{Web Server Gateway Interface}
+\newacronym{asgi}{ASGI}{Asynchronous Server Gateway Interface}
+\newacronym{crud}{CRUD}{Create, Read, Update, Delete}
+\newacronym{acid}{ACID}{Atomicity, Consistency, Isolation, Durability}
 
-% --- Criptografía y seguridad ---
+% --- Autenticación, autorización y seguridad ----------------------------------
 \newacronym{aes}{AES}{Advanced Encryption Standard}
 \newacronym{gcm}{GCM}{Galois/Counter Mode}
-
-% --- Identificadores ---
-\newacronym{dni}{DNI}{Documento Nacional de Identidad}
-\newacronym{nia}{NIA}{Número de Identificación del Alumno}
-
-% --- Institucional ---
-\newacronym{eps}{EPS}{Escuela Politécnica Superior}
-\newacronym{uam}{UAM}{Universidad Autónoma de Madrid}
-\newacronym{tfg}{TFG}{Trabajo Fin de Grado}
-
-% --- Ingeniería del software ---
-\newacronym{uml}{UML}{Unified Modeling Language}
-\newacronym{er}{E-R}{Entidad-Relación}
-\newacronym{rf}{RF}{Requisito Funcional}
-\newacronym{rnf}{RNF}{Requisito No Funcional}
-
-% --- Normativa ---
+\newacronym{jwt}{JWT}{JSON Web Token}
+\newacronym{oidc}{OIDC}{OpenID Connect}
+\newacronym{idp}{IdP}{Identity Provider}
 \newacronym{rgpd}{RGPD}{Reglamento General de Protección de Datos}
-\newacronym{lopdgdd}{LOPDGDD}{Ley Orgánica de Protección de Datos y Garantía de Derechos Digitales}
-\newacronym{arco}{ARCO}{Acceso, Rectificación, Cancelación y Oposición}
+\newacronym{saml}{SAML}{Security Assertion Markup Language}
+\newacronym{sso}{SSO}{Single Sign-On}
+\newacronym{tls}{TLS}{Transport Layer Security}
 
-% --- Infraestructura ---
+% --- Reconocimiento y procesamiento de imagen ---------------------------------
+\newacronym{ocr}{OCR}{Optical Character Recognition}
+\newacronym{omr}{OMR}{Optical Mark Recognition}
+\newacronym{qr}{QR}{Quick Response}
+
+% --- Despliegue e infraestructura ---------------------------------------------
+\newacronym{saas}{SaaS}{Software as a Service}
 \newacronym{s3}{S3}{Simple Storage Service}
-\newacronym{ci}{CI}{Continuous Integration}
-\newacronym{cd}{CD}{Continuous Deployment}
 
-% TODO: Añadir nuevos acrónimos aquí conforme aparezcan en el texto.
-%       Formato: \newacronym{label}{SIGLA}{Significado Completo}
+% --- Sistema -----------------------------------------------------------------
+\newacronym{scdee}{SCDEE}{Sistema de Corrección Digital de Exámenes Escritos}

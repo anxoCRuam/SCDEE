@@ -1,0 +1,121 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+title Ingesta de PDF multi-página – reconocimiento y ensamblado
+
+'── Actores / componentes ──────────────────────────────
+actor "Operador" as OP
+participant "Watcher\n(sftp_watcher)" as WATCH
+participant "Celery\n(ingest_page_task)" as INGEST
+database "MinIO" as MINIO
+database "PostgreSQL" as DB
+participant "Celery\n(recognize_page_task)" as RECOG
+participant "Dispatcher" as DISP
+participant "QRRecognizer" as QRR
+participant "OCRRecognizer" as OCRR
+participant "CheckboxRecognizer" as CHKR
+participant "Matcher" as MATCH
+participant "Assembler" as ASM
+
+'── Flujo principal ─────────────────────────────────────
+== Detección del fichero ==
+OP -> WATCH: deposita "examen.pdf" en carpeta SFTP
+WATCH -> WATCH: claim atómico (os.rename)
+
+== Ingesta y normalización ==
+WATCH -> INGEST: .delay(file_data_b64, filename)
+activate INGEST
+INGEST -> INGEST: decodifica base64\nvalida tamaño (< max_size_mb)
+INGEST -> INGEST: **_normalize_to_png_pages()**\nconvierte PDF → 3 PNGs (200 DPI)
+
+loop para cada página (3 páginas)
+    INGEST -> MINIO: upload_to_minio(key, png_bytes)
+    INGEST -> DB: INSERT INTO ExamPage\n(status=PENDING_RECOGNITION)
+    INGEST -> RECOG: recognize_page_task.delay(page_id)
+end
+INGEST --> WATCH: (tarea finalizada)
+deactivate INGEST
+WATCH -> WATCH: archiva PDF en .processed/
+
+== Reconocimiento (por cada página, asíncrono) ==
+loop para cada ExamPage
+    RECOG -> DB: SELECT ... FOR UPDATE ExamPage\n(solo si sigue en PENDING_RECOGNITION)
+    RECOG -> MINIO: download_from_minio(storage_ref)
+    RECOG -> DISP: recognize_page(page)
+    activate DISP
+
+    '── Paso 1: QR ──
+    DISP -> QRR: recognize(full_page_image)
+    QRR -> QRR: decodifica QR, extrae payload\n(org_id, exam_id, model_id, page_number)
+    QRR -> QRR: verifica checksum
+    QRR --> DISP: RecognitionResult(value=payload, confidence=1.0)
+
+    alt QR válido
+        DISP -> DB: SELECT PageProfile\npara model_id + page_number
+    else QR inválido / no encontrado
+        DISP -> DB: UPDATE ExamPage.issue_type='QR_READ_ERROR'\nstatus=PENDING_RECOGNITION
+        DISP -> ASM: assemble_page(page, results) → fallback
+        deactivate DISP
+    end
+
+    '── Paso 2: OCR / checkbox ──
+    DISP -> DISP: para cada zona no QR del PageProfile
+    loop para cada zona
+        DISP -> DISP: _crop_zone(image, zone_coords)
+
+        alt OCR_TEXT / OCR_NUMBER
+            DISP -> OCRR: recognize(cropped_image)
+            OCRR -> DB: (consulta config de organización)\n obtiene motor OCR + umbral
+            OCRR -> OCRR: ejecuta motor (EasyOCR/Tesseract)
+            OCRR --> DISP: texto, confianza
+            DISP -> DISP: valida confianza ≥ umbral\ny formato numérico (si OCR_NUMBER)
+        else CHECKBOX
+            DISP -> CHKR: recognize(cropped_image)
+            CHKR -> CHKR: analiza densidad píxeles oscuros
+            CHKR --> DISP: is_marked, confianza
+        end
+    end
+
+    DISP -> DB: UPDATE ExamPage\nSET recognized_at=now(),\nstatus=RECOGNIZED,\nrecognized_data={zones, qr_payload}
+
+    '── Paso 3: Matching de estudiante ──
+    DISP -> MATCH: match_student(exam, attributes)
+    MATCH -> DB: SELECT convoked students
+    MATCH -> MATCH: compara NIA, DNI, nombre\n(tolerancia OCR + Levenshtein)
+    MATCH --> DISP: (user, confidence) o (None, 0.0)
+    DISP -> DISP: almacena resultado en recognized_data
+
+    '── Paso 4: Ensamblado ──
+    DISP -> ASM: assemble_page(page, recognition_results)
+    activate ASM
+
+    alt página 1 (portada)
+        ASM -> DB: INSERT INTO ExamInstance\n(status=ASSEMBLING, expected_pages=...)
+        ASM -> DB: UPDATE ExamPage SET instance_id = <nueva>
+        ASM -> DB: (si hay match)\nUPDATE ExamInstance.student_id
+        opt single-page exam
+            ASM -> DB: UPDATE ExamInstance.status = 'RECEIVED'
+        end
+    else página > 1
+        ASM -> DB: SELECT ASSEMBLING instance\npara mismo exam+model
+        alt existe instancia
+            ASM -> DB: UPDATE ExamPage SET instance_id = <existente>
+            ASM -> DB: check_assembling_complete()
+            opt todas las páginas recibidas
+                ASM -> DB: UPDATE ExamInstance.status = 'RECEIVED'
+            end
+        else no hay instancia
+            ASM -> DB: UPDATE ExamPage\nstatus='ORPHAN'
+        end
+    end
+
+    ASM --> DISP: (hecho)
+    deactivate ASM
+    DISP --> RECOG: results
+    deactivate DISP
+    RECOG -> RECOG: (tarea finalizada)
+end
+
+@enduml

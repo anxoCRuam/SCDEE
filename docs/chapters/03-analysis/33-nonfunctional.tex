@@ -1,0 +1,95 @@
+Los 15 requisitos no funcionales del backend del SCDEE se enumeran a
+continuación. Su detalle ampliado se incluye en \cref{SEC:REQ-NONFUNCTIONAL}.
+
+\begin{nonfunctional}
+
+  \item \textbf{Rendimiento.} \label{rnf:performance}
+  Las operaciones \acs{crud} estándar deben completarse en menos de
+  500\,ms; las cargas y descargas, en menos de 3\,s; los listados
+  paginados, en menos de 1\,s; las exportaciones, en menos de 10\,s; y las
+  tareas asíncronas de reconocimiento, en menos de 60\,s por página.
+
+  \item \textbf{Concurrencia.} \label{rnf:concurrency}
+  El sistema debe soportar el escenario de 300 alumnos simultáneos en
+  consulta tras la publicación de notas, así como al menos 30 correctores
+  simultáneos en operación normal de corrección sin degradación apreciable
+  del rendimiento.
+
+  \item \textbf{Despliegue.} \label{rnf:deployment}
+  El sistema debe poder desplegarse mediante un único fichero
+  \texttt{docker-compose.yml} que levante todos los servicios necesarios
+  (Django, PostgreSQL, Redis, \textit{workers} de Celery, MinIO,
+  \acs{sftp}), con la configuración del entorno externalizada en
+  variables de entorno.
+
+  \item \textbf{Escalabilidad.} \label{rnf:scalability}
+  La arquitectura de contenedores debe facilitar un futuro despliegue
+  distribuido en servicios \textit{cloud} sin cambios arquitectónicos en
+  el código fuente, con \textit{workers} replicables horizontalmente y
+  aislamiento lógico entre organizaciones por \texttt{organization\_id}.
+
+  \item \textbf{Disponibilidad y observabilidad.}
+  \label{rnf:availability}
+  El sistema debe exponer un \textit{endpoint} de \textit{health check}
+  (\texttt{/health/}) que verifique la conectividad con PostgreSQL, Redis,
+  MinIO y los \textit{workers} de Celery, accesible sin autenticación.
+
+  \item \textbf{Seguridad en la \acs{api}.} \label{rnf:api-security}
+  El sistema debe implementar \textit{rate limiting} en la \acs{api},
+  validar y sanear todas las entradas, e incluir cabeceras \acs{http}
+  anti-caché en las respuestas con datos sensibles.
+
+  \item \textbf{Cumplimiento del \acs{rgpd}.} \label{rnf:gdpr}
+  El sistema debe cumplir con los requisitos técnicos derivados del
+  \acs{rgpd}: cifrado en reposo de datos especialmente sensibles
+  (\acs{dni}), auditoría de accesos, \textit{soft-delete} de usuarios y
+  almacenamiento seguro de contraseñas.
+
+  \item \textbf{Interoperabilidad.} \label{rnf:interop}
+  El \dfn{backend} debe exponer una \acs{api} \acs{rest} versionada bajo
+  \texttt{/api/v1/} cuyo contrato se documenta mediante una especificación
+  OpenAPI~3.x generada automáticamente, con respuestas en \acs{json} y
+  formato uniforme para errores.
+
+  \item \textbf{Mantenibilidad y extensibilidad.}
+  \label{rnf:maintainability}
+  El sistema debe seguir una arquitectura modular, con autenticador,
+  motor de \acs{ocr} y reconocedores implementados como \dfnpl{plugin}
+  intercambiables, y un \textit{dispatcher} de reconocedores extensible a
+  nuevos tipos de zona sin modificar el código existente.
+
+  \item \textbf{Internacionalización.} \label{rnf:i18n}
+  Los contenidos generados para el usuario (correos, notificaciones)
+  deben soportar internacionalización; en la versión 1.0, el idioma por
+  defecto por organización es el español.
+
+  \item \textbf{Observabilidad y \textit{logging}.}
+  \label{rnf:logging}
+  El sistema debe mantener dos niveles de \textit{logging} con políticas
+  de retención distintas: log de aplicación rotado periódicamente y log
+  de auditoría inmutable y permanente.
+
+  \item \textbf{Pruebas.} \label{rnf:testing}
+  El sistema debe disponer de pruebas a tres niveles: unitarias para la
+  lógica de negocio y utilidades, de integración para la interacción
+  entre componentes, y de carga para validar rendimiento y concurrencia.
+
+  \item \textbf{Persistencia e integridad de datos.}
+  \label{rnf:persistence}
+  La base de datos principal es PostgreSQL y debe garantizar la
+  integridad referencial en todo momento; Redis se utiliza como caché,
+  \textit{broker} y almacén de la lista negra de \textit{tokens}, no como
+  almacenamiento primario.
+
+  \item \textbf{Almacenamiento de objetos.}
+  \label{rnf:object-storage}
+  MinIO es el servicio de almacenamiento para todos los ficheros
+  binarios de tamaño variable (páginas escaneadas, \acs{pdf} en blanco,
+  \textit{payloads} de anotaciones), con metadatos en PostgreSQL.
+
+  \item \textbf{Paginación.} \label{rnf:pagination}
+  Todos los \textit{endpoints} de listado de la \acs{api} deben devolver
+  resultados paginados por \textit{offset}, con tamaño de página
+  configurable y metadatos de paginación en cada respuesta.
+
+\end{nonfunctional}

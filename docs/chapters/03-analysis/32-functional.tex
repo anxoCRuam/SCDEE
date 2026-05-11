@@ -1,0 +1,901 @@
+Los requisitos funcionales del backend se organizan en 16 grupos que
+totalizan 133 sub-requisitos individuales.
+La \cref{table:rf-summary} resume los grupos con su conteo; % TODO cuadro en vez de tabla
+a continuación, se lista cada sub-requisito con un resumen de su propósito.
+La especificación detallada (entradas, procesos y salidas) de cada
+sub-requisito se incluye en \cref{SEC:REQ-FUNCTIONAL}.
+
+\begin{table}[Resumen de requisitos por grupo]%
+            {table:rf-summary}%
+            {Resumen de requisitos funcionales por grupo, con conteo de
+             sub-requisitos.}
+  \small
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabular}{c l r}
+    \hline
+    \textbf{N.\textsuperscript{o}} & \textbf{Subsistema} & \textbf{Sub-RF} \\
+    \hline
+    1  & Autenticación y sesiones                       & 5   \\
+    2  & Gestión de usuarios y organizaciones           & 13  \\
+    3  & Cursos académicos                              & 5   \\
+    4  & Asignaturas y grupos                           & 10  \\
+    5  & Permisos y autorización                        & 7   \\
+    6  & Exámenes y modelos                             & 16  \\
+    7  & Instancias de examen y páginas                 & 15  \\
+    8  & Reglas de corrección                           & 5   \\
+    9  & Ingesta de documentos y reconocimiento         & 13  \\
+    10 & Anotaciones                                    & 7   \\
+    11 & Calificaciones                                 & 6   \\
+    12 & Revisión de exámenes                           & 8   \\
+    13 & Notificaciones                                 & 7   \\
+    14 & Exportación y búsqueda                         & 5   \\
+    15 & Configuración y mantenimiento                  & 5   \\
+    16 & Seguridad y auditoría                          & 6   \\
+    \hline
+       & \textbf{Total sub-requisitos funcionales}      & \textbf{133} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+
+\begin{functional}
+
+  % --- RF-1 -----------------------------------------------------------------
+  \item \textbf{Autenticación y sesiones.} \label{rf:auth}
+  \begin{functional}
+    \item \textbf{Abstracción del autenticador basado en \textit{tokens}.}
+    \label{rf:auth:interface}
+    El sistema debe definir una interfaz abstracta de autenticación basada
+    en \textit{tokens} que desacople el mecanismo concreto del resto del
+    sistema, soportando la sustitución de \dfnpl{plugin} sin cambios en el
+    \dfn{frontend} ni la lógica de negocio.
+
+    \item \textbf{Inicio de sesión con credenciales.}
+    \label{rf:auth:login}
+    El sistema debe autenticar a los usuarios mediante correo electrónico y
+    contraseña, emitiendo un par de \textit{tokens} \acs{jwt} (uno de
+    acceso, de corta duración, y uno de refresco, rotativo).
+
+    \item \textbf{Renovación de \textit{token} de acceso.}
+    \label{rf:auth:refresh}
+    El sistema debe permitir obtener un nuevo \textit{access token} a partir
+    de un \textit{refresh token} válido mediante rotación, sin requerir las
+    credenciales del usuario.
+
+    \item \textbf{Cierre de sesión.} \label{rf:auth:logout}
+    El sistema debe permitir al usuario cerrar su sesión invalidando los
+    \textit{tokens} activos mediante una lista negra en Redis con expiración
+    sincronizada.
+
+    \item \textbf{Preparación para \acl{sso} \dfn{multitenant}
+    \textnormal{[diseño preparatorio; no se implementa \dfn{plugin} \acs{sso}
+    en la versión~1.0]}.} \label{rf:auth:sso}
+    El sistema debe estar preparado arquitectónicamente para soportar
+    autenticación federada (\acs{saml}~2.0 y \acs{oidc}) por organización,
+    sin requerir cambios en el \dfn{frontend} ni en la lógica de negocio.
+  \end{functional}
+
+
+  % --- RF-2 -----------------------------------------------------------------
+  \item \textbf{Gestión de usuarios y organizaciones.} \label{rf:users}
+  \begin{functional}
+    \item \textbf{Creación de organización.} \label{rf:users:org-create}
+    El sistema debe permitir al superadministrador crear nuevas
+    organizaciones, validando la unicidad del subdominio y creando un
+    usuario gestor inicial con contraseña generada y enviada por correo.
+
+    \item \textbf{Creación individual de usuario.} \label{rf:users:create}
+    El sistema debe permitir a un gestor crear usuarios en su organización,
+    cifrando el \acs{dni} con \acs{aes}-256-\acs{gcm} antes de almacenarlo y
+    enviando una contraseña inicial generada al correo del usuario.
+
+    \item \textbf{Importación masiva de usuarios.}
+    \label{rf:users:bulk-import}
+    El sistema debe permitir importar múltiples usuarios desde un fichero
+    \acs{csv} o \acs{json}, creando los nuevos, reactivando los inactivos y
+    actualizando los activos, con un informe del resultado por fila.
+
+    \item \textbf{Modificación de datos de usuario.}
+    \label{rf:users:update}
+    El sistema debe permitir a un gestor modificar los datos de cualquier
+    usuario de su organización, registrando los valores anteriores y nuevos
+    en el log de auditoría.
+
+    \item \textbf{Desactivación de usuario.} \label{rf:users:deactivate}
+    El sistema debe permitir a un gestor dar de baja a un usuario sin
+    eliminar su registro físicamente, preservando la integridad referencial
+    con sus datos históricos.
+
+    \item \textbf{Gestión de gestores.} \label{rf:users:staff-toggle}
+    El sistema debe permitir a un gestor designar o revocar el rol de gestor
+    a otros usuarios de su organización mediante el flag
+    \texttt{is\_staff}.
+
+    \item \textbf{Generación y envío de contraseña segura.}
+    \label{rf:users:passwd-gen}
+    El sistema debe generar automáticamente una contraseña aleatoria que
+    cumpla requisitos de complejidad al crear cualquier usuario, almacenarla
+    como hash con sal y enviarla por correo en una tarea asíncrona.
+
+    \item \textbf{Restablecimiento de contraseña por gestor.}
+    \label{rf:users:passwd-reset}
+    El sistema debe permitir a un gestor forzar el restablecimiento de la
+    contraseña de un usuario, invalidando además todos sus \textit{tokens}
+    activos.
+
+    \item \textbf{Modificación del correo electrónico propio.}
+    \label{rf:users:email-self-update}
+    El sistema debe permitir a cualquier usuario autenticado modificar su
+    propia dirección de correo, validando su unicidad dentro de la
+    organización.
+
+    \item \textbf{Consulta del perfil propio.}
+    \label{rf:users:profile-self}
+    El sistema debe permitir a cualquier usuario consultar sus datos
+    personales, asignaturas del curso activo y rol en cada una, devolviendo
+    el \acs{dni} descifrado solo si es el propio usuario o un gestor.
+
+    \item \textbf{Gestión de preferencias de notificación.}
+    \label{rf:users:notif-prefs}
+    El sistema debe permitir a cualquier usuario activar o desactivar la
+    recepción de notificaciones por correo electrónico.
+
+    \item \textbf{Listado y búsqueda de usuarios.}
+    \label{rf:users:list}
+    El sistema debe permitir a un gestor listar y buscar usuarios de su
+    organización con filtros avanzados, paginación y búsqueda parcial por
+    texto en nombre y apellidos.
+
+    \item \textbf{Exportación de usuarios.}
+    \label{rf:users:export}
+    El sistema debe permitir a un gestor exportar los usuarios de su
+    organización en formato \acs{csv} o \acs{json}, registrando la operación
+    en el log de auditoría.
+  \end{functional}
+
+
+  % --- RF-3 -----------------------------------------------------------------
+  \item \textbf{Cursos académicos.} \label{rf:courses}
+  \begin{functional}
+    \item \textbf{Creación de curso académico.}
+    \label{rf:courses:create}
+    El sistema debe permitir a un gestor crear un nuevo curso académico,
+    activándolo como vigente y disparando la transición desde el curso
+    anterior si existía.
+
+    \item \textbf{Modificación de curso académico.}
+    \label{rf:courses:update}
+    El sistema debe permitir a un gestor modificar la etiqueta y las fechas
+    de un curso, registrando los cambios en el log de auditoría.
+
+    \item \textbf{Transición de curso.} \label{rf:courses:transition}
+    El sistema debe ejecutar de forma transaccional el archivado del curso
+    anterior, la desactivación de los usuarios no gestores, el archivado de
+    sus \texttt{SubjectMembership} y notificaciones, y el archivado de
+    todas sus instancias de examen.
+
+    \item \textbf{Consulta de cursos.} \label{rf:courses:list}
+    El sistema debe permitir al gestor consultar la lista de cursos de su
+    organización, diferenciando el activo de los archivados.
+
+    \item \textbf{Navegación entre cursos por gestor.}
+    \label{rf:courses:browse}
+    El sistema debe permitir al gestor consultar en modo lectura los datos
+    de cualquier curso archivado, rechazando con \acs{http}~403 toda
+    operación de escritura.
+  \end{functional}
+
+
+  % --- RF-4 -----------------------------------------------------------------
+  \item \textbf{Asignaturas y grupos.} \label{rf:subjects}
+  \begin{functional}
+    \item \textbf{Creación individual de asignatura.}
+    \label{rf:subjects:create}
+    El sistema debe permitir a un gestor crear una asignatura asociada al
+    curso activo, validando la unicidad del código y creando una
+    \texttt{SubjectMembership} con rol \texttt{COORDINATOR} para el usuario
+    designado.
+
+    \item \textbf{Importación masiva de asignaturas.}
+    \label{rf:subjects:bulk-import}
+    El sistema debe permitir crear múltiples asignaturas desde un fichero
+    \acs{csv} o \acs{json}, incluyendo grupos, profesores y asignación de
+    estudiantes a grupos.
+
+    \item \textbf{Modificación de asignatura.}
+    \label{rf:subjects:update}
+    El sistema debe permitir al gestor o al coordinador modificar los datos
+    de una asignatura, ajustando el rol \texttt{COORDINATOR} si se cambia el
+    coordinador.
+
+    \item \textbf{Eliminación de asignatura.}
+    \label{rf:subjects:delete}
+    El sistema debe permitir eliminar una asignatura siempre que no tenga
+    exámenes asociados, rechazando la operación con \acs{http}~409 en caso
+    contrario.
+
+    \item \textbf{Gestión de grupos.} \label{rf:subjects:groups}
+    El sistema debe permitir al coordinador o al gestor crear, modificar y
+    eliminar grupos dentro de una asignatura; los estudiantes de un grupo
+    eliminado quedan sin grupo asignado.
+
+    \item \textbf{Asignación de usuarios a asignatura.}
+    \label{rf:subjects:add-member}
+    El sistema debe permitir al coordinador o al gestor vincular usuarios a
+    una asignatura con rol (\texttt{TEACHER} o \texttt{STUDENT}) y, si
+    procede, a un grupo concreto.
+
+    \item \textbf{Desasignación de usuarios de asignatura.}
+    \label{rf:subjects:remove-member}
+    El sistema debe permitir desvincular a un usuario de una asignatura,
+    aplicando desactivación lógica si tiene instancias asociadas y borrado
+    físico en caso contrario.
+
+    \item \textbf{Listado de asignaturas del usuario.}
+    \label{rf:subjects:my-list}
+    El sistema debe permitir a cualquier usuario consultar las asignaturas
+    del curso activo en las que participa, indicando rol y grupo.
+
+    \item \textbf{Consulta detallada de asignatura.}
+    \label{rf:subjects:detail}
+    El sistema debe devolver la información de una asignatura adaptada al
+    rol del solicitante: completa para gestores, coordinador y profesores;
+    parcial (sin lista de estudiantes) para los propios estudiantes.
+
+    \item \textbf{Exportación de asignaturas.}
+    \label{rf:subjects:export}
+    El sistema debe permitir al gestor exportar las asignaturas del curso
+    activo, incluyendo asignaciones de usuarios y grupos.
+  \end{functional}
+
+
+  % --- RF-5 -----------------------------------------------------------------
+  \item \textbf{Permisos y autorización.} \label{rf:perms}
+  \begin{functional}
+    \item \textbf{Permisos de gestor (\texttt{is\_staff}).}
+    \label{rf:perms:staff}
+    El sistema debe otorgar automáticamente a los usuarios con
+    \texttt{is\_staff=True} permisos plenos de administración sobre todas
+    las asignaturas de su organización, sin necesidad de
+    \texttt{SubjectMembership} explícita.
+
+    \item \textbf{Asignación de permisos contextuales por defecto.}
+    \label{rf:perms:defaults}
+    El sistema debe inicializar el campo \texttt{permission\_overrides} de
+    cada \texttt{SubjectMembership} a partir de los permisos base del rol y
+    los valores por defecto configurables por organización.
+
+    \item \textbf{Modificación de permisos contextuales.}
+    \label{rf:perms:override}
+    El sistema debe permitir al coordinador modificar los permisos de un
+    profesor en su asignatura, fusionando las modificaciones con los
+    \texttt{permission\_overrides} existentes.
+
+    \item \textbf{Revocación de permisos contextuales.}
+    \label{rf:perms:revoke}
+    El sistema debe permitir al coordinador eliminar anulaciones previamente
+    aplicadas (asignando \texttt{null}), restaurando los valores por
+    defecto del rol.
+
+    \item \textbf{Consulta de permisos efectivos.}
+    \label{rf:perms:query}
+    El sistema debe permitir consultar los permisos efectivos de un usuario
+    en una asignatura, indicando para cada permiso si proviene del rol base
+    o de una anulación.
+
+    \item \textbf{Restricción de delegación.}
+    \label{rf:perms:no-delegation}
+    El sistema debe impedir que un usuario otorgue a otro permisos que él
+    mismo no posee, rechazando la operación íntegramente con
+    \acs{http}~403.
+
+    \item \textbf{Permisos de corrección
+    (capa \texttt{AssignmentRule}).}
+    \label{rf:perms:assignment}
+    El sistema debe restringir el acceso a páginas, anotaciones y
+    calificaciones de cada instancia a los correctores asignados a esa
+    instancia o a problemas concretos mediante \texttt{AssignmentRule}.
+  \end{functional}
+
+
+  % --- RF-6 -----------------------------------------------------------------
+  \item \textbf{Exámenes y modelos.} \label{rf:exams}
+  \begin{functional}
+    \item \textbf{Creación de examen.} \label{rf:exams:create}
+    El sistema debe permitir al coordinador (o a un profesor con permiso
+    \texttt{can\_create\_exams}) crear un examen dentro de una asignatura,
+    inicializando un modelo «A» vacío y una lista de convocados vacía.
+
+    \item \textbf{Modificación de examen.} \label{rf:exams:update}
+    El sistema debe permitir modificar nombre y permisos del alumno sobre la
+    instancia, siempre que el examen no tenga instancias en estado
+    publicado o posterior.
+
+    \item \textbf{Eliminación de examen.} \label{rf:exams:delete}
+    El sistema debe permitir eliminar un examen sin instancias,
+    descartando todos sus modelos, perfiles, problemas, rúbricas y
+    \acs{pdf} asociados en MinIO.
+
+    \item \textbf{Gestión de la lista de convocados.}
+    \label{rf:exams:call-list}
+    El sistema debe permitir al coordinador (o a un profesor con permiso
+    \texttt{can\_manage\_call\_list}) reemplazar la lista de alumnos
+    convocados al examen, validando que todos pertenecen a la asignatura.
+
+    \item \textbf{Creación de modelo con copia de estructura base.}
+    \label{rf:exams:model-create}
+    El sistema debe permitir crear un modelo dentro de un examen, copiando
+    opcionalmente la estructura de otro modelo (perfiles de página,
+    problemas, rúbricas y referencia al \acs{pdf} en blanco).
+
+    \item \textbf{Modificación de modelo.}
+    \label{rf:exams:model-update}
+    El sistema debe permitir modificar la estructura de un modelo,
+    invalidando el \acs{pdf} instrumentado si se modifican zonas de tipo
+    \acs{qr}.
+
+    \item \textbf{Carga de \acs{pdf} en blanco.}
+    \label{rf:exams:blank-pdf-upload}
+    El sistema debe permitir cargar el \acs{pdf} en blanco de referencia de
+    un modelo, validando su integridad y tamaño y almacenándolo en MinIO en
+    el bucket de plantillas.
+
+    \item \textbf{Definición de perfiles de página y zonas.}
+    \label{rf:exams:page-profiles}
+    El sistema debe permitir definir, para cada página del \acs{pdf} en
+    blanco, un \texttt{PageProfile} que agrupe zonas tipadas
+    (\texttt{OCR\_TEXT}, \texttt{OCR\_NUMBER}, \texttt{QR},
+    \texttt{CHECKBOX}) con sus coordenadas y atributo asociado.
+
+    \item \textbf{Definición de problemas.}
+    \label{rf:exams:problems}
+    El sistema debe permitir definir los problemas del modelo con su
+    puntuación máxima (que puede ser negativa) y opcionalmente referencias a
+    zonas de los perfiles de página.
+
+    \item \textbf{Configuración de permisos del alumno sobre el examen.}
+    \label{rf:exams:student-perms}
+    El sistema debe permitir configurar qué información ve el alumno sobre
+    su instancia publicada (páginas, anotaciones, rúbrica, nota desglosada,
+    descarga, acceso tras revisión).
+
+    \item \textbf{Definición de rúbrica por problema.}
+    \label{rf:exams:rubric}
+    El sistema debe permitir definir una rúbrica de \textit{checkmarks} con
+    puntuación fija (positiva o negativa) por criterio para cada problema.
+
+    \item \textbf{Listado de exámenes de una asignatura.}
+    \label{rf:exams:list}
+    El sistema debe devolver la lista de exámenes de una asignatura
+    adaptada al rol del usuario, con resumen de modelos e instancias.
+
+    \item \textbf{Consulta detallada de examen.}
+    \label{rf:exams:detail}
+    El sistema debe devolver la información completa de un examen
+    (modelos, perfiles, zonas, problemas, rúbricas, estado del \acs{pdf}
+    instrumentado y resumen de instancias) adaptada al rol.
+
+    \item \textbf{Almacenamiento de \acs{pdf} en blanco en MinIO.}
+    \label{rf:exams:blank-pdf-store}
+    El sistema debe almacenar los \acs{pdf} en blanco en MinIO en el bucket
+    de plantillas, con metadatos en base de datos (tamaño, tipo MIME,
+    número de páginas, fecha).
+
+    \item \textbf{Generación del \acs{pdf} instrumentado.}
+    \label{rf:exams:instrumented-pdf}
+    El sistema debe generar el \acs{pdf} instrumentado superponiendo
+    códigos \acs{qr} (con \texttt{org\_id}, \texttt{exam\_id},
+    \texttt{model\_id} y \texttt{page\_number}) sobre las zonas \acs{qr}
+    definidas, almacenándolo aparte del original.
+
+    \item \textbf{Descarga del \acs{pdf} instrumentado.}
+    \label{rf:exams:instrumented-download}
+    El sistema debe permitir al coordinador descargar el \acs{pdf}
+    instrumentado mediante una URL temporal, rechazando con
+    \acs{http}~409 si está invalidado y debe regenerarse.
+  \end{functional}
+
+
+  % --- RF-7 -----------------------------------------------------------------
+  \item \textbf{Instancias de examen y páginas.} \label{rf:instances}
+  \begin{functional}
+    \item \textbf{Creación automática de instancia.}
+    \label{rf:instances:auto-create}
+    El sistema debe crear automáticamente una instancia en estado
+    \texttt{ASSEMBLING} al recibir e identificar la portada de un alumno,
+    asociando el alumno si las zonas de identificación lo permiten.
+
+    \item \textbf{Modificación de instancia.}
+    \label{rf:instances:update}
+    El sistema debe permitir al corrector asignado, al coordinador o al
+    gestor modificar atributos de la instancia (alumno, modelo),
+    desactivando el flag \texttt{has\_issues} si se resuelven todas las
+    incidencias.
+
+    \item \textbf{Consulta de instancia.}
+    \label{rf:instances:detail}
+    El sistema debe devolver la información de una instancia adaptada al rol
+    y los permisos del solicitante (corrector, coordinador, alumno
+    propietario, gestor).
+
+    \item \textbf{Listado de instancias con filtros.}
+    \label{rf:instances:list}
+    El sistema debe permitir listar las instancias de un examen con filtros
+    combinables (grupo, modelo, estado, corrector, presencia y tipo de
+    incidencia) y paginación.
+
+    \item \textbf{Máquina de estados del ciclo de vida.}
+    \label{rf:instances:state-machine}
+    El sistema debe gestionar las transiciones entre los estados
+    \texttt{ASSEMBLING}, \texttt{RECEIVED}, \texttt{QUEUED},
+    \texttt{PENDING\_GRADING}, \texttt{GRADED}, \texttt{PUBLISHED},
+    \texttt{IN\_REVIEW}, \texttt{PENDING\_REVIEW}, \texttt{FINALIZED} y
+    \texttt{ARCHIVED}, rechazando transiciones ilegales.
+
+    \item \textbf{Detección automática de incidencias.}
+    \label{rf:instances:detect-issues}
+    El sistema debe detectar las incidencias \texttt{QR\_READ\_ERROR},
+    \texttt{QR\_MISMATCH}, \texttt{MISSING\_PAGE}, \texttt{EXTRA\_PAGE},
+    \texttt{ORPHAN\_PAGE}, \texttt{STUDENT\_NOT\_IDENTIFIED} y
+    \texttt{DUPLICATE\_STUDENT} marcando los registros afectados con
+    \texttt{has\_issues=True}.
+
+    \item \textbf{Resolución manual de incidencias.}
+    \label{rf:instances:resolve-issues}
+    El sistema debe permitir al coordinador o al gestor resolver
+    incidencias manualmente y desactivar el flag de incidencias cuando
+    todas estén resueltas.
+
+    \item \textbf{Verificación de cobertura de corrección.}
+    \label{rf:instances:coverage}
+    El sistema debe verificar que todas las instancias y problemas tienen
+    al menos un corrector asignado antes de permitir la publicación.
+
+    \item \textbf{Publicación masiva de notas.}
+    \label{rf:instances:publish}
+    El sistema debe permitir al coordinador publicar todas las
+    instancias \texttt{GRADED} de un examen sin incidencias, opcionalmente
+    notificando a los alumnos.
+
+    \item \textbf{Eliminación de instancia.}
+    \label{rf:instances:delete}
+    El sistema debe permitir al coordinador o al gestor eliminar una
+    instancia y todos sus recursos asociados (páginas, anotaciones,
+    calificaciones, ficheros).
+
+    \item \textbf{Descarga del \acs{pdf} completo de instancia.}
+    \label{rf:instances:pdf-download}
+    El sistema debe componer bajo demanda las páginas de una instancia en
+    un único \acs{pdf}, opcionalmente con anotaciones superpuestas.
+
+    \item \textbf{Retroceso de estado.}
+    \label{rf:instances:rollback}
+    El sistema debe permitir al coordinador retroceder el estado de una
+    instancia mediante transiciones autorizadas
+    (\texttt{GRADED}\,$\to$\,\texttt{PENDING\_GRADING},
+    \texttt{PUBLISHED}\,$\to$\,\texttt{GRADED},
+    \texttt{FINALIZED}\,$\to$\,\texttt{PENDING\_REVIEW}).
+
+    \item \textbf{Almacenamiento de páginas escaneadas en MinIO.}
+    \label{rf:instances:pages-store}
+    El sistema debe almacenar individualmente las páginas escaneadas en
+    MinIO con metadatos en base de datos (tamaño, dimensiones, orden,
+    fecha, estado).
+
+    \item \textbf{Gestión manual de páginas de una instancia.}
+    \label{rf:instances:pages-manage}
+    El sistema debe ofrecer al coordinador operaciones de reordenado,
+    eliminación, traslado entre instancias y vinculación de páginas
+    huérfanas para resolver incidencias de ingesta.
+
+    \item \textbf{Generación de \acs{pdf} bajo demanda.}
+    \label{rf:instances:pdf-on-demand}
+    El sistema debe componer el \acs{pdf} completo de una instancia bajo
+    demanda a partir de sus páginas en orden.
+  \end{functional}
+
+
+  % --- RF-8 -----------------------------------------------------------------
+  \item \textbf{Reglas de corrección.} \label{rf:assignment}
+  \begin{functional}
+    \item \textbf{Creación de reglas de asignación.}
+    \label{rf:assignment:create}
+    El sistema debe permitir al coordinador definir reglas
+    (\texttt{AssignmentRule}) que asignen correctores a instancias o
+    problemas mediante filtros combinables (grupo, modelo, problema).
+
+    \item \textbf{Eliminación de reglas de asignación.}
+    \label{rf:assignment:delete}
+    El sistema debe permitir al coordinador eliminar reglas, conservando
+    las calificaciones asociadas pero retirando el acceso del corrector a
+    las instancias afectadas.
+
+    \item \textbf{Aplicación de reglas y cálculo de asignaciones.}
+    \label{rf:assignment:apply}
+    El sistema debe evaluar las reglas activas contra las instancias
+    existentes y generar o actualizar las asignaciones concretas, también
+    al crearse nuevas instancias.
+
+    \item \textbf{Verificación de cobertura.}
+    \label{rf:assignment:coverage}
+    El sistema debe identificar las instancias y problemas sin corrector
+    asignado, agrupando los huecos por modelo y grupo.
+
+    \item \textbf{Listado de tareas del corrector.}
+    \label{rf:assignment:my-tasks}
+    El sistema debe devolver al corrector la lista de instancias y
+    problemas que tiene asignados, con estado de corrección y presencia de
+    incidencias.
+  \end{functional}
+
+
+  % --- RF-9 -----------------------------------------------------------------
+  \item \textbf{Ingesta de documentos y reconocimiento.}
+  \label{rf:ingest}
+  \begin{functional}
+    \item \textbf{Monitorización de carpetas \acs{sftp}.}
+    \label{rf:ingest:watcher}
+    El sistema debe mantener un \textit{watcher} que monitorice una o
+    varias carpetas \acs{sftp} en busca de nuevas páginas escaneadas y las
+    transfiera al almacenamiento temporal para procesamiento.
+
+    \item \textbf{Ingesta de página.} \label{rf:ingest:page}
+    El sistema debe validar cada página recibida, almacenarla en MinIO en
+    estado \texttt{PENDING\_RECOGNITION} y encolar su tarea de
+    reconocimiento.
+
+    \item \textbf{Identificación por \acs{qr}.} \label{rf:ingest:qr}
+    El sistema debe decodificar las zonas \acs{qr} de cada página para
+    extraer \texttt{org\_id}, \texttt{exam\_id}, \texttt{model\_id} y
+    \texttt{page\_number}, validando el \textit{checksum} y disparando la
+    incidencia oportuna si falla.
+
+    \item \textbf{\textit{Dispatcher} de reconocedores.}
+    \label{rf:ingest:dispatcher}
+    El sistema debe ejecutar el reconocedor adecuado para cada zona del
+    \texttt{PageProfile} correspondiente, recortando la región y aplicando
+    el \dfn{plugin} configurado para el tipo de zona.
+
+    \item \textbf{Reconocimiento de zonas \acs{ocr}.}
+    \label{rf:ingest:ocr-zones}
+    El sistema debe ejecutar el motor \acs{ocr} sobre las zonas
+    \texttt{OCR\_TEXT} y \texttt{OCR\_NUMBER}, validando el formato
+    numérico cuando corresponda y devolviendo el resultado con un nivel de
+    confianza.
+
+    \item \textbf{Reconocimiento de zonas \texttt{CHECKBOX}.}
+    \label{rf:ingest:checkbox}
+    El sistema debe evaluar las zonas \texttt{CHECKBOX} mediante análisis
+    de densidad de píxeles o un clasificador binario, devolviendo el valor
+    booleano y un nivel de confianza.
+
+    \item \textbf{\textit{Matching} inteligente de atributos.}
+    \label{rf:ingest:matching}
+    El sistema debe asociar los textos extraídos a candidatos válidos
+    (alumnos convocados) mediante similitud textual (Levenshtein) y
+    tolerancia a confusiones comunes de \acs{ocr}, aplicando un umbral de
+    confianza configurable.
+
+    \item \textbf{Selección dinámica de motor \acs{ocr}.}
+    \label{rf:ingest:engine-select}
+    El sistema debe permitir seleccionar el motor \acs{ocr} de forma
+    global por organización o por petición, sin afectar a los reconocedores
+    fijos de \acs{qr} y \texttt{CHECKBOX}.
+
+    \item \textbf{Registro de \dfnpl{plugin} de reconocedores.}
+    \label{rf:ingest:plugin-registry}
+    El sistema debe permitir registrar varios motores \acs{ocr} como
+    \dfnpl{plugin} intercambiables que implementen la interfaz
+    \texttt{BaseOCREngine}.
+
+    \item \textbf{Ensamblado de instancias a partir de páginas.}
+    \label{rf:ingest:assembly}
+    El sistema debe agrupar las páginas identificadas por \acs{qr} bajo la
+    instancia correspondiente, transitándola a \texttt{RECEIVED} cuando
+    todas las páginas esperadas hayan llegado.
+
+    \item \textbf{\textit{Fallback} de proximidad temporal.}
+    \label{rf:ingest:fallback}
+    El sistema debe asociar temporalmente las páginas sin \acs{qr} legible
+    a la instancia más reciente del mismo origen dentro de un umbral
+    configurable, marcándolas con incidencia
+    \texttt{ORPHAN\_PAGE}.
+
+    \item \textbf{\acs{ocr} sobre anotación de calificación.}
+    \label{rf:ingest:ocr-grade}
+    El sistema debe ejecutar \acs{ocr} sobre la anotación designada como
+    calificación para extraer la nota numérica y asignarla automáticamente
+    al problema indicado si la confianza es suficiente.
+
+    \item \textbf{\acs{ocr} sobre anotaciones de \textit{stylus}
+    (extensible).} \label{rf:ingest:ocr-stylus}
+    El sistema debe soportar la ejecución de \acs{ocr} sobre anotaciones
+    de \textit{stylus} renderizando los trazos a imagen y delegando al
+    motor configurado.
+  \end{functional}
+
+
+  % --- RF-10 ----------------------------------------------------------------
+  \item \textbf{Anotaciones.} \label{rf:annotations}
+  \begin{functional}
+    \item \textbf{Creación de anotación.} \label{rf:annotations:create}
+    El sistema debe permitir a un corrector crear anotaciones de texto,
+    \textit{stylus} o audio sobre una instancia asignada, asociadas
+    opcionalmente a un problema concreto.
+
+    \item \textbf{Modificación de anotación.}
+    \label{rf:annotations:update}
+    El sistema debe permitir al autor sobrescribir el contenido de una
+    anotación existente, sin mantener historial de versiones.
+
+    \item \textbf{Eliminación de anotación.}
+    \label{rf:annotations:delete}
+    El sistema debe permitir al autor eliminar una anotación y su
+    \textit{payload} binario asociado en MinIO.
+
+    \item \textbf{Consulta de anotaciones de una instancia.}
+    \label{rf:annotations:list}
+    El sistema debe devolver las anotaciones de una instancia con filtros
+    por problema, página, tipo o autor, adaptando el acceso al rol del
+    solicitante.
+
+    \item \textbf{Anotación de calificación.}
+    \label{rf:annotations:grading}
+    El sistema debe soportar una anotación marcada como calificación, que
+    desencadena \acs{ocr} sobre su contenido para asignar la nota al
+    problema indicado.
+
+    \item \textbf{Almacenamiento de \textit{payloads} en MinIO.}
+    \label{rf:annotations:store}
+    El sistema debe almacenar los \textit{payloads} binarios de las
+    anotaciones (audio, trazos serializados) en MinIO en el bucket de la
+    organización, validando duración y formato.
+
+    \item \textbf{Asociación opcional a problema.}
+    \label{rf:annotations:problem-link}
+    El sistema debe permitir que una anotación esté ligada a un problema
+    concreto o sea general de la instancia.
+  \end{functional}
+
+
+  % --- RF-11 ----------------------------------------------------------------
+  \item \textbf{Calificaciones.} \label{rf:grading}
+  \begin{functional}
+    \item \textbf{Asignación manual de nota a problema.}
+    \label{rf:grading:manual}
+    El sistema debe permitir al corrector asignar o modificar la
+    calificación numérica (decimal, posiblemente negativa) de un problema,
+    aplicando concurrencia optimista contra la nota anterior conocida.
+
+    \item \textbf{Asignación de nota por rúbrica.}
+    \label{rf:grading:rubric}
+    El sistema debe permitir al corrector calificar un problema marcando
+    o desmarcando \textit{checkmarks} de su rúbrica, calculando la
+    calificación como suma de las puntuaciones marcadas.
+
+    \item \textbf{Cálculo automático de nota total.}
+    \label{rf:grading:total}
+    El sistema debe recalcular la nota total de la instancia tras cada
+    modificación de calificación, sumando las notas de los problemas con
+    un mínimo de cero.
+
+    \item \textbf{Consulta de calificaciones desglosadas.}
+    \label{rf:grading:detail}
+    El sistema debe devolver la calificación de cada problema, el estado
+    de la rúbrica si aplica, y la nota total, adaptando el detalle al rol
+    del usuario.
+
+    \item \textbf{Concurrencia optimista en calificaciones.}
+    \label{rf:grading:optimistic}
+    El sistema debe rechazar con \acs{http}~409 las modificaciones de
+    calificación cuya nota anterior conocida no coincida con la
+    almacenada, devolviendo la actual para sincronización.
+
+    \item \textbf{Consulta de nota por alumno.}
+    \label{rf:grading:my-grade}
+    El sistema debe permitir al alumno consultar su nota una vez la
+    instancia esté en \texttt{PUBLISHED} o posterior, respetando los
+    permisos configurados en el examen (desglose, total, etc.).
+  \end{functional}
+
+
+  % --- RF-12 ----------------------------------------------------------------
+  \item \textbf{Revisión de exámenes.} \label{rf:review}
+  \begin{functional}
+    \item \textbf{Creación de ventana de revisión.}
+    \label{rf:review:create}
+    El sistema debe permitir al coordinador crear una ventana de revisión
+    para un examen con todas sus instancias publicadas, definiendo fechas
+    de inicio y fin y opción de notificación.
+
+    \item \textbf{Apertura automática de acceso.}
+    \label{rf:review:auto-open}
+    El sistema debe transitar las instancias del examen al estado
+    \texttt{IN\_REVIEW} al alcanzarse la fecha de inicio, abriendo el
+    acceso del alumno según los permisos configurados.
+
+    \item \textbf{Cierre automático de acceso.}
+    \label{rf:review:auto-close}
+    El sistema debe cerrar el acceso al alcanzar la fecha de fin,
+    transitando a \texttt{FINALIZED} las instancias sin solicitud y a
+    \texttt{PENDING\_REVIEW} las que tengan al menos una.
+
+    \item \textbf{Solicitud de revisión por alumno.}
+    \label{rf:review:request}
+    El sistema debe permitir al alumno solicitar la revisión de uno o
+    varios problemas durante la ventana, con un mensaje opcional por
+    problema.
+
+    \item \textbf{Notificación agrupada de solicitudes al corrector.}
+    \label{rf:review:notify-corrector}
+    El sistema debe agrupar las solicitudes de revisión por corrector y
+    enviar una única notificación con el resumen tras el cierre de la
+    ventana.
+
+    \item \textbf{Recorrección por corrector.}
+    \label{rf:review:re-grade}
+    El sistema debe permitir al corrector consultar las solicitudes y
+    actualizar calificaciones y anotaciones de las instancias
+    \texttt{PENDING\_REVIEW} que tenga asignadas.
+
+    \item \textbf{Cierre de solicitud de revisión.}
+    \label{rf:review:close-request}
+    El sistema debe permitir al corrector marcar como cerrada cada
+    solicitud, transitando la instancia a \texttt{FINALIZED} cuando todas
+    las solicitudes asociadas estén cerradas.
+
+    \item \textbf{Notificación de resultado de revisión al alumno.}
+    \label{rf:review:notify-student}
+    El sistema debe notificar al alumno la conclusión de su revisión
+    incluyendo la nota final.
+  \end{functional}
+
+
+  % --- RF-13 ----------------------------------------------------------------
+  \item \textbf{Notificaciones.} \label{rf:notif}
+  \begin{functional}
+    \item \textbf{Creación de notificación \textit{in-app}.}
+    \label{rf:notif:create}
+    El sistema debe crear notificaciones internas asociadas a eventos del
+    dominio (publicación de notas, apertura de revisión, asignación de
+    corrección, incidencias, etc.).
+
+    \item \textbf{Envío de correo electrónico espejo.}
+    \label{rf:notif:email}
+    El sistema debe enviar un correo electrónico espejo de cada
+    notificación si el destinatario tiene la preferencia activa,
+    procesado de forma asíncrona.
+
+    \item \textbf{Marcado de notificación como leída.}
+    \label{rf:notif:read}
+    El sistema debe permitir al usuario marcar notificaciones individuales
+    o masivas como leídas.
+
+    \item \textbf{Listado de notificaciones.} \label{rf:notif:list}
+    El sistema debe devolver al usuario sus notificaciones paginadas y
+    ordenadas cronológicamente, con filtros por estado de lectura y tipo.
+
+    \item \textbf{Archivado de notificaciones en cambio de curso.}
+    \label{rf:notif:archive}
+    El sistema debe archivar todas las notificaciones del curso anterior
+    al ejecutar la transición de curso.
+
+    \item \textbf{Envío de correo directo.} \label{rf:notif:direct}
+    El sistema debe enviar correos directos (bienvenida, restablecimiento
+    de contraseña) que no generan notificación \textit{in-app} y que
+    ignoran la preferencia del usuario.
+
+    \item \textbf{Plantillas de correo electrónico y notificación.}
+    \label{rf:notif:templates}
+    El sistema debe implementar plantillas con soporte de
+    internacionalización para los distintos tipos de mensajes.
+  \end{functional}
+
+
+  % --- RF-14 ----------------------------------------------------------------
+  \item \textbf{Exportación y búsqueda.} \label{rf:export}
+  \begin{functional}
+    \item \textbf{Exportación de notas en formato institucional.}
+    \label{rf:export:grades}
+    El sistema debe exportar las calificaciones de un examen en formato
+    \acs{csv} compatible con SIGMA, incluyendo solo instancias publicadas o
+    posteriores.
+
+    \item \textbf{Datos completos de calificaciones.}
+    \label{rf:export:grades-detail}
+    El sistema debe permitir obtener los datos completos de calificaciones
+    de un examen en formato \acs{json} estructurado.
+
+    \item \textbf{Búsqueda jerárquica por gestor.}
+    \label{rf:export:hierarchy}
+    El sistema debe permitir al gestor explorar el histórico de su
+    organización siguiendo la jerarquía cursos\,$\to$\,asignaturas\,$\to$\,exámenes\,$\to$\,instancias.
+
+    \item \textbf{Filtros avanzados sobre entidades.}
+    \label{rf:export:filters}
+    El sistema debe soportar filtros combinables y búsqueda parcial por
+    texto en los listados de las entidades principales.
+
+    \item \textbf{Acceso a datos de cursos archivados.}
+    \label{rf:export:archived}
+    El sistema debe garantizar el acceso de solo lectura a los datos de
+    cursos archivados, rechazando con \acs{http}~403 toda escritura.
+  \end{functional}
+
+
+  % --- RF-15 ----------------------------------------------------------------
+  \item \textbf{Configuración y mantenimiento.} \label{rf:config}
+  \begin{functional}
+    \item \textbf{Consulta de configuración de organización.}
+    \label{rf:config:read}
+    El sistema debe permitir al gestor consultar todos los parámetros
+    configurables de su organización (motor \acs{ocr}, umbrales,
+    duraciones, idioma, permisos por defecto, etc.).
+
+    \item \textbf{Modificación de configuración de organización.}
+    \label{rf:config:write}
+    El sistema debe permitir al gestor modificar la configuración en
+    caliente, sin reiniciar servicios, invalidando la caché Redis tras cada
+    cambio.
+
+    \item \textbf{Borrado automático programado de exámenes archivados.}
+    \label{rf:config:auto-purge}
+    El sistema debe ejecutar periódicamente la eliminación de los
+    exámenes archivados que excedan la antigüedad configurada por
+    organización, preservando el log de auditoría.
+
+    \item \textbf{Notificación previa al borrado automático.}
+    \label{rf:config:auto-purge-notify}
+    El sistema debe notificar a los gestores con la antelación
+    configurada antes de cada borrado automático, indicando el número de
+    exámenes afectados.
+
+    \item \textbf{Modificación de permisos por defecto en asignaturas.}
+    \label{rf:config:default-perms}
+    El sistema debe permitir al gestor modificar los permisos por defecto
+    con los que se crean los roles en una asignatura, afectando
+    únicamente a las membresías futuras.
+  \end{functional}
+
+
+  % --- RF-16 ----------------------------------------------------------------
+  \item \textbf{Seguridad y auditoría.} \label{rf:security}
+  \begin{functional}
+    \item \textbf{Registro inmutable de eventos de auditoría.}
+    \label{rf:security:audit-log}
+    El sistema debe registrar de forma inmutable los eventos de negocio
+    con impacto en datos en una tabla \textit{append-only} de PostgreSQL,
+    con \texttt{org\_id}, actor, IP, marca temporal y datos del evento.
+
+    \item \textbf{Consulta del log de auditoría.}
+    \label{rf:security:audit-query}
+    El sistema debe permitir al gestor consultar el log de auditoría de su
+    organización con filtros por rango de fechas, tipo de evento, actor,
+    entidad e IP.
+
+    \item \textbf{Cifrado de \acs{dni} en reposo.}
+    \label{rf:security:dni-encrypt}
+    El sistema debe cifrar el \acs{dni} mediante \acs{aes}-256-\acs{gcm}
+    antes de almacenarlo, con \textit{nonce} único por registro.
+
+    \item \textbf{\textit{Hash} seguro de contraseñas.}
+    \label{rf:security:password-hash}
+    El sistema debe almacenar las contraseñas como \textit{hash} con sal
+    mediante Argon2, descartando inmediatamente la contraseña en texto
+    plano.
+
+    \item \textbf{Marca de agua dinámica en páginas servidas a alumnos.}
+    \label{rf:security:watermark}
+    El sistema debe aplicar una marca de agua dinámica con datos
+    identificativos del alumno y marca temporal a las páginas servidas en
+    revisión, sin alterar la página original.
+
+    \item \textbf{Protección anti-descarga de páginas.}
+    \label{rf:security:anti-download}
+    El sistema debe combinar URLs temporales con expiración corta, marca
+    de agua dinámica, cifrado en tránsito con clave por sesión y
+    cabeceras \acs{http} anti-caché para dificultar la descarga no
+    autorizada.
+  \end{functional}
+
+\end{functional}

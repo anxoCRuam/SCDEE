@@ -1,0 +1,51 @@
+El backend del SCDEE se desarrolla en Python 3.12 sobre Django 5.1 y
+Django REST Framework 3.15, con PostgreSQL 16 como base de datos
+relacional, Redis 7 como \textit{broker} de Celery 5.4 y caché, y MinIO
+como almacén de objetos compatible con \acs{s3}. La capa de empaquetado
+y orquestación local se gestiona mediante Docker Compose, conforme al
+\cref{rnf:deployment}.
+
+El proceso de desarrollo se apoya en un conjunto reducido de herramientas
+que cubren cuatro funciones complementarias.
+
+\begin{itemize}
+
+  \item \textbf{Calidad de código.} ruff actúa como \textit{linter} y
+  formateador único, sustituyendo a las herramientas tradicionales
+  (flake8, isort, black) con un único binario y un único fichero de
+  configuración. mypy realiza el análisis estático de tipos sobre todo
+  el código de aplicación, con \textit{stubs} específicos para Django y
+  \acs{drf}. pre-commit aplica ambas herramientas como \textit{hook} de
+  Git antes de cada \textit{commit}.
+
+  \item \textbf{Pruebas.} pytest se utiliza como ejecutor de pruebas
+  unitarias y de integración, con pytest-django como integración con el
+  \acs{orm} y factory-boy con Faker para construir \textit{fixtures}.
+  La cobertura se mide con pytest-cov. Las pruebas de carga se ejecutan
+  con Locust contra el \textit{endpoint} \texttt{/api/v1/} para verificar
+  el \cref{rnf:concurrency}.
+
+  \item \textbf{Generación automática de documentación y diagramas.} El
+  esquema OpenAPI se deriva automáticamente del código mediante
+  drf-spectacular (\cref{SEC:DES-API}); los diagramas de clase del
+  modelo se generan con \texttt{graph\_models} de django-extensions; el
+  esquema relacional físico se exporta con SchemaSpy. Estos artefactos
+  se regeneran de forma reproducible y forman parte del material gráfico
+  de la memoria.
+
+  \item \textbf{Observabilidad en desarrollo.} El \texttt{docker-compose}
+  define un perfil opcional \texttt{monitoring} que arranca pgAdmin
+  (PostgreSQL), Redis Commander (Redis), Flower (Celery) y Mailpit
+  (captura de \acs{smtp}). Estos servicios no participan del despliegue
+  de producción y existen únicamente para inspeccionar el estado del
+  sistema durante el desarrollo.
+
+\end{itemize}
+
+Como interfaz unificada de comandos, el proyecto incluye un
+\texttt{Makefile} que delega cada operación al \texttt{docker-compose}
+subyacente: \texttt{make up} arranca los servicios, \texttt{make check}
+ejecuta pruebas, \textit{lint} y comprobación de tipos,
+\texttt{make sftp-watcher} lanza el \textit{watcher} de ingesta. Esta
+capa de abstracción reduce el coste cognitivo del desarrollo diario y
+centraliza la documentación de los comandos disponibles.

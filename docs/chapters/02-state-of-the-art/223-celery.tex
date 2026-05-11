@@ -1,0 +1,16 @@
+Celery es un sistema distribuido de cola de tareas para Python,
+ampliamente usado en aplicaciones Django para descargar al servidor web
+del trabajo costoso (procesamiento de imágenes, \acs{ocr}, envío de
+correo) y permitir su ejecución asíncrona en procesos \textit{worker}
+separados \cite{celery}. Su arquitectura se compone de tres elementos:
+un \textit{broker} que transmite los mensajes entre el productor y los
+\textit{workers}, un \textit{result backend} opcional para almacenar los
+resultados de las tareas, y los propios \textit{workers}. Como
+\textit{broker} y \textit{result backend} el SCDEE emplea Redis
+\cite{redis}, una base de datos en memoria con soporte para estructuras
+de datos eficientes y operaciones atómicas, que cubre adicionalmente el
+rol de caché de aplicación y de almacén de la lista negra de tokens. La
+elección de Redis frente a alternativas robustas como RabbitMQ obedece
+principalmente a su menor complejidad operativa: Redis basta sobradamente
+para el volumen previsto de tareas y consolida en un único servicio
+varias funciones de infraestructura, simplificando el despliegue.

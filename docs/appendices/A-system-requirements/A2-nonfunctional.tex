@@ -1,0 +1,78 @@
+\begin{nonfunctional}
+
+  % --- RNF-1 ---
+  \item \textbf{Rendimiento.}
+
+  El sistema debe satisfacer los siguientes tiempos de respuesta en condiciones normales de operación: las operaciones CRUD estándar de la API deben completarse en menos de 500 ms; la carga y descarga de ficheros debe completarse en menos de 3 segundos; los listados paginados deben servirse en menos de 1 segundo; las exportaciones de datos deben completarse en menos de 10 segundos; y las tareas asíncronas de reconocimiento deben procesarse en menos de 60 segundos por página.
+
+  % --- RNF-2 ---
+  \item \textbf{Concurrencia.}
+
+  El sistema debe soportar un pico de concurrencia de aproximadamente 1200 usuarios simultáneos por organización, correspondiente al escenario de publicación de notas o apertura de revisión con cuatro asignaturas de 300 alumnos cada una. En operación normal de corrección, el sistema debe soportar al menos 30 correctores simultáneos por organización sin degradación apreciable del rendimiento.
+
+  % --- RNF-3 ---
+  \item \textbf{Despliegue.}
+
+  El sistema debe poder desplegarse mediante un único fichero docker-compose.yml que levante todos los servicios necesarios: Django (API), PostgreSQL, Redis, uno o más workers de Celery (reconocimiento y notificaciones), MinIO y un servidor SFTP. La configuración específica del entorno debe externalizarse en ficheros de variables de entorno.
+
+  % --- RNF-4 ---
+  \item \textbf{Escalabilidad.}
+
+  La arquitectura de contenedores debe facilitar un futuro despliegue distribuido en servicios cloud para el modo SaaS, sin cambios arquitectónicos en el código fuente. Los workers de Celery deben poder replicarse horizontalmente. El aislamiento entre organizaciones se garantiza a nivel lógico mediante el campo organization\_id.
+
+  % --- RNF-5 ---
+  \item \textbf{Disponibilidad y observabilidad.}
+
+  El sistema debe exponer un endpoint de health check (/health/) que verifique la conectividad con PostgreSQL, Redis, MinIO y el estado de los workers de Celery. Este endpoint no requiere autenticación.
+
+  % --- RNF-6 ---
+  \item \textbf{Seguridad en la API.}
+
+  El sistema debe implementar rate limiting en la API. Todas las entradas del usuario deben validarse y sanearse. Las respuestas que contengan datos sensibles deben incluir cabeceras HTTP anti-caché.
+
+  % --- RNF-7 ---
+  \item \textbf{Cumplimiento del RGPD.}
+
+  El sistema debe cumplir con los requisitos técnicos derivados del RGPD: cifrado en reposo de datos especialmente sensibles (DNI), auditoría de accesos tanto a modificaciones como a lecturas de datos de categoría especial, no eliminación física de usuarios (soft delete) y almacenamiento seguro de contraseñas.
+
+  % --- RNF-8 ---
+  \item \textbf{Interoperabilidad.}
+
+  El backend debe exponer una API REST versionada mediante prefijo de ruta (/api/v1/) cuyo contrato se documenta mediante una especificación OpenAPI 3.x generada automáticamente. Todas las respuestas de la API utilizan formato JSON, salvo las descargas de ficheros binarios. Las respuestas de error siguen un formato uniforme con código de error simbólico.
+
+  % --- RNF-9 ---
+  \item \textbf{Mantenibilidad y extensibilidad.}
+
+  El sistema debe diseñarse con una arquitectura modular. El autenticador, el motor de OCR y los reconocedores deben implementarse como plugins intercambiables. El código debe seguir los principios de separación de responsabilidades. El dispatcher de reconocedores debe ser extensible para nuevos tipos de zona sin modificar el código existente.
+
+  % --- RNF-10 ---
+  \item \textbf{Internacionalización.}
+
+  Los contenidos generados para el usuario (correos electrónicos, mensajes de notificación) deben soportar internacionalización (i18n). En la versión 1.0, el idioma por defecto por organización es el español. El motor de OCR debe poder configurarse con el idioma del texto a reconocer.
+
+  % --- RNF-11 ---
+  \item \textbf{Observabilidad y logging.}
+
+  El sistema debe mantener dos niveles de logging diferenciados: log de aplicación (eventos técnicos) y log de auditoría (eventos de negocio con impacto en datos). Ambos logs son independientes y tienen políticas de retención distintas: el log de aplicación se rota periódicamente; el log de auditoría es inmutable y permanente.
+
+  % --- RNF-12 ---
+  \item \textbf{Pruebas.}
+
+  Se requieren tres niveles de pruebas: pruebas unitarias para la lógica de negocio y funciones de utilidad; pruebas de integración para verificar la interacción entre componentes; y pruebas de carga para validar los requisitos de rendimiento y concurrencia.
+
+  % --- RNF-13 ---
+  \item \textbf{Persistencia e integridad de datos.}
+
+  La base de datos principal es PostgreSQL. El sistema debe garantizar la integridad referencial en todo momento. Redis se utiliza como caché, broker de Celery y almacén de la lista negra de tokens; no se emplea como almacenamiento primario.
+
+  % --- RNF-14 ---
+  \item \textbf{Almacenamiento de objetos.}
+
+  MinIO se utiliza como servicio de almacenamiento de objetos para todos los ficheros de tamaño variable: páginas escaneadas (ExamPage), PDFs en blanco de modelos, binarios de anotaciones. Los metadatos de los ficheros se almacenan en PostgreSQL y los ficheros binarios en MinIO.
+
+  % --- RNF-15 ---
+  \item \textbf{Paginación.}
+
+  Todos los endpoints de listado de la API deben devolver resultados paginados mediante paginación por offset. El tamaño de página por defecto y el tamaño máximo son configurables. Cada respuesta paginada incluye los metadatos de paginación: número total de elementos, página actual, tamaño de página y número total de páginas.
+
+\end{nonfunctional}

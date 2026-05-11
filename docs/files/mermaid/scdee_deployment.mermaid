@@ -1,0 +1,54 @@
+%%{init: {'flowchart': {'curve': 'basis', 'nodeSpacing': 80, 'rankSpacing': 100}}}%%
+flowchart LR
+
+subgraph "🏠 Development Host (Docker Engine)"
+    subgraph "Core Services"
+        API("api<br/>Django :8000")
+        DB("db<br/>PostgreSQL :5433")
+        Redis("redis<br/>:6379")
+        MinIO("minio<br/>S3 :9000")
+        CeleryW("celery_worker<br/>(default,recognition,notif)")
+        CeleryB("celery_beat<br/>(DB Scheduler)")
+        Mailpit("mailpit<br/>SMTP :1025 | UI :8025")
+    end
+
+    subgraph "Opional (monitoring profile)"
+        PGAdmin("pgadmin<br/>:5050")
+        RedisCommander("redis-commander<br/>:8081")
+        Flower("flower<br/>:5555")
+    end
+
+    subgraph "Volúmenes persistentes"
+        V_Postgres[(postgres_data)]
+        V_Redis[(redis_data)]
+        V_MinIO[(minio_data)]
+        V_Inbox[(ingestion_inbox)]
+    end
+end
+
+%% ============== Conexiones del núcleo (con etiquetas cortas) ==============
+API -- "HTTP" --> Client(("Cliente externo"))
+API -- "SQL" --> DB
+API -- "Cache / Tokens" --> Redis
+API -- "S3 API" --> MinIO
+API -- "SMTP" --> Mailpit
+
+CeleryW -- "Broker/Result" --> Redis
+CeleryW -- "DB access" --> DB
+CeleryW -- "Read/Write files" --> MinIO
+
+CeleryB -- "Broker" --> Redis
+CeleryB -- "Schedules" --> DB
+
+%% ============== Volúmenes (línea punteada) ==============
+DB -. "mount" .-> V_Postgres
+Redis -. "mount" .-> V_Redis
+MinIO -. "mount" .-> V_MinIO
+API -. "mount (inbox)" .-> V_Inbox
+CeleryW -. "mount (inbox)" .-> V_Inbox
+
+%% ============== Monitoreo (opcional, mantengo separado) ==============
+PGAdmin -- "SQL admin" --> DB
+RedisCommander -- "Redis monitor" --> Redis
+Flower -- "Celery monitor" --> Redis
+Flower -- "Worker status" --> CeleryW

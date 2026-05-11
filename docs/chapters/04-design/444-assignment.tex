@@ -1,0 +1,10 @@
+La etapa final empareja la página reconocida con la \texttt{ExamInstance}
+correcta. Usando los resultados del reconocimiento, se aplica un servicio
+de \textit{matching} que empareja los datos identificativos del alumno
+extraídos contra la lista de alumnos convocados, con una estrategia
+jerárquica con tolerancia a errores de \acs{ocr} y gestionado por un
+umbral de confianza.
+
+Si no se reconoció el \acs{qr} de una página, existe un \textit{fallback}
+de ensamblado por proximidad, útil para exámenes con páginas extra y que
+llegan ordenados.

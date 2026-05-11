@@ -1,0 +1,16 @@
+El backend del SCDEE se ha desarrollado de forma completa y operativa,
+cumpliendo plenamente cinco de los seis objetivos planteados en
+\cref{SEC:INTRO-OBJECTIVES}: el \dfn{backend} multi-tenant, la
+arquitectura modular con \dfnpl{plugin} intercambiables, el
+\textit{pipeline} de ingesta y reconocimiento, las medidas técnicas de
+seguridad y \acs{rgpd}, y la generación automática del contrato OpenAPI.
+El sexto objetivo, la validación del sistema, se cumple parcialmente:
+las pruebas unitarias y de integración alcanzan un 88\,\% de cobertura
+y validan el \cref{rnf:concurrency} en escenarios de operación normal,
+pero identifican un cuello de botella bajo carga máxima de publicación,
+abordable mediante las líneas descritas en
+\cref{SEC:CONCL-FUTURE-WORK}.
+
+El sistema resultante procesa el ciclo completo de un examen escrito
+desde la entrega física hasta el archivo definitivo, exponiendo todas
+sus operaciones a través de una \acs{api} \acs{rest} documentada.

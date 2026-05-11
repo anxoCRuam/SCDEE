@@ -1,0 +1,15 @@
+La extensibilidad del SCDEE se sustenta en una serie de interfaces
+abstractas que admiten implementaciones intercambiables sin modificar el
+código que las usa. Este patrón corresponde al patrón \textit{Strategy}
+descrito en el catálogo canónico de Gamma \emph{et al.}
+\cite{gof1994designpatterns}, que encapsula una familia de algoritmos
+tras una interfaz común y selecciona dinámicamente la implementación
+apropiada. En el SCDEE este patrón se aplica en tres puntos cruzados de
+su arquitectura: el autenticador (con \dfn{plugin} \acs{jwt} por
+credenciales en la versión~1.0 y \acs{sso} institucional previsto como
+incorporación futura), el motor de \acs{ocr} (con \dfnpl{plugin} EasyOCR
+y Tesseract), y los reconocedores de zonas (extensibles a nuevos tipos
+sin modificar el \textit{dispatcher} central). Esta organización honra
+el principio \emph{Open/Closed} (abierto a extensión, cerrado a
+modificación) en los extremos sensibles del sistema, lo que reduce el
+riesgo de regresiones al incorporar nuevas capacidades.

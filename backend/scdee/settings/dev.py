@@ -13,6 +13,31 @@ from .base import *  # noqa: F401, F403
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],  # No necesitas templates propios
+        "APP_DIRS": True,  # Busca en apps instaladas (DRF, drf-spectacular)
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+DEV_APPS = [
+    "django.contrib.sessions",  # Si usas DRF browseable API
+    "django.contrib.messages",  # Si usas DRF browseable API
+    "django.contrib.staticfiles",  # Para CSS/JS de Swagger
+    "django_extensions",
+    "django_erd_generator",
+]
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS + DEV_APPS
+
 # ============================================================
 # Logging — human-readable in dev
 # ============================================================

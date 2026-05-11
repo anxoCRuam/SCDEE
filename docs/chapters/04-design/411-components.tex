@@ -1,0 +1,92 @@
+\begin{figure}[Diagrama de componentes del SCDEE]%
+              {fig:scdee-components}%
+              {Diagrama de componentes del backend del SCDEE.}
+  \image{}{}{mermaid/scdee_components}
+\end{figure}
+
+El sistema se descompone en siete componentes principales
+(\cref{fig:scdee-components}):
+
+\begin{enumerate}
+
+  \item \textbf{Servicio \acs{api} (Django + \acs{drf}).}
+  Aplicación web que expone los recursos del sistema bajo el prefijo
+  \texttt{/api/v1/}, implementa el \textit{middleware} de contexto
+  multi-tenant, la autenticación basada en \dfnpl{plugin} y la
+  autorización contextual por \texttt{SubjectMembership}; delega toda
+  tarea de larga duración a los \textit{workers} asíncronos. La
+  versión~1.0 utiliza el servidor de desarrollo de Django
+  (\texttt{runserver}); en un despliegue de producción este se sustituye
+  por un servidor \acs{wsgi} dedicado como Gunicorn o uWSGI, sustitución
+  transparente al código de la aplicación.
+
+  \item \textbf{PostgreSQL.}
+  Base de datos relacional principal, que aloja toda la información
+  estructurada del dominio (organizaciones, usuarios, asignaturas,
+  exámenes, instancias, calificaciones, anotaciones, notificaciones, log
+  de auditoría) con integridad referencial estricta y transacciones
+  \acs{acid} (\cref{rnf:persistence}).
+
+  \item \textbf{Redis.}
+  Base de datos en memoria que actúa simultáneamente como \textit{broker}
+  de Celery, \textit{result backend}, caché de la configuración por
+  organización y almacén de la lista negra de \textit{refresh tokens}
+  revocados.
+
+  \item \textbf{MinIO.}
+  Servicio de almacenamiento de objetos compatible con la \ac{api}
+  \ac{s3} que aloja los binarios de tamaño variable: \acsp{pdf} en blanco
+  de los modelos, \acsp{pdf} instrumentados con códigos \acs{qr}, páginas
+  escaneadas individuales (\texttt{ExamPage}), composiciones bajo demanda
+  y \textit{payloads} de anotaciones (\cref{rnf:object-storage}).
+
+  \item \textbf{\textit{Workers} de Celery.}
+  Procesos asíncronos suscritos a tres colas
+  (\texttt{default}, \texttt{recognition}, \texttt{notifications}) que
+  ejecutan respectivamente las tareas de mantenimiento, reconocimiento
+  de páginas y envío de correo. Las tres colas se sirven actualmente
+  desde el mismo proceso para simplificar el despliegue local, pero la
+  arquitectura admite separarlas en \textit{workers} dedicados sin
+  cambios de código en producción.
+
+  \item \textbf{Celery beat.}
+  Planificador de tareas periódicas con \textit{backend} en base de
+  datos (mediante el paquete \texttt{django-celery-beat}), responsable
+  de disparar el borrado automático de exámenes archivados
+  (\cref{rf:config:auto-purge}), la apertura y el cierre de las ventanas
+  de revisión (\cref{rf:review:auto-open,rf:review:auto-close}) y otras
+  tareas programadas.
+
+  \item \textbf{\textit{Watcher} de ingesta.}
+  Comando de gestión de Django (\texttt{python manage.py sftp\_watcher})
+  que se ejecuta como proceso aparte y monitoriza una o varias carpetas
+  locales en busca de nuevas páginas escaneadas. Al detectar un fichero
+  válido, lo reclama atómicamente, codifica su contenido y encola la
+  tarea de ingesta en Celery. La organización a la que pertenece cada
+  página se extrae del código \acs{qr} durante el reconocimiento, no
+  de la estructura del directorio. En el despliegue local del SCDEE las
+  carpetas monitorizadas son volúmenes Docker; en un despliegue real
+  con cabina de escaneo serían carpetas \acs{sftp} expuestas por el
+  escáner.
+
+\end{enumerate}
+
+A estos siete componentes se añade un servicio \acs{smtp} externo, utilizado
+por los \textit{workers} para el envío asíncrono de correo (en desarrollo
+se sustituye por una instancia local de Mailpit que captura los mensajes
+sin entregarlos), y un conjunto opcional de servicios de monitorización
+(pgAdmin, Redis Commander y Flower) que el operador puede activar bajo
+demanda mediante un perfil aparte de Docker Compose. El \dfn{frontend},
+responsabilidad del \acs{tfg} paralelo, se sitúa fuera del backend y se
+comunica con él exclusivamente a través de la \acs{api} \acs{rest}; esta
+separación permite que ambos extremos evolucionen y se desplieguen de forma
+independiente.
+
+Dentro del servicio \acs{api}, el código se organiza siguiendo una
+arquitectura por capas con una capa de servicios explícita
+(\textit{Service Layer}, descrita por Fowler \cite{fowler2002}): los
+modelos representan la persistencia, los \textit{serializers} la validación
+y transformación de entrada y salida, las vistas el enrutado y la
+autorización, y los servicios la lógica de negocio reutilizable y
+desacoplada de \acs{http}. La \cref{SEC:DES-LAYERS} desarrolla en detalle
+las responsabilidades de cada capa.

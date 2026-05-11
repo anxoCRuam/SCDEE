@@ -1,0 +1,14 @@
+flowchart TD
+    A[Fichero recibido] --> B{Página o PDF?}
+    B -->|PDF| C[Dividir en páginas PNG]
+    B -->|Imagen| D[Convertir a PNG]
+    C --> E[Almacenar pág. en MinIO]
+    D --> E
+    E --> F[Crear ExamPage]
+    F --> G[Encolar tarea reconocimiento]
+    G --> H[Decoder QR]
+    H -->|éxito| I[Asociar a examen/modelo]
+    H -->|falla| J[Fallback proximidad]
+    I --> K[Ejecutar OCR/checkbox]
+    K --> L[Ensamblador]
+    L --> M[Instancia actualizada]

@@ -1,0 +1,63 @@
+El modelo del dominio del SCDEE se compone de 23 entidades de negocio
+organizadas en siete subdominios temáticos
+(\cref{table:des-domain-subdomains}). % TODO cuadro en vez de tabla
+
+\begin{table}[Subdominios del modelo de dominio]%
+            {table:des-domain-subdomains}%
+            {Subdominios del modelo de dominio del SCDEE.}
+  \small
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabular}{p{3.5cm} p{10.5cm}}
+    \hline
+    \textbf{Subdominio} & \textbf{Entidades} \\
+    \hline
+    Identidad &
+      \texttt{Organization}, \texttt{OrganizationConfig},
+      \texttt{User}, \texttt{SamlConfig}, \texttt{OidcConfig} \\
+    Estructura académica &
+      \texttt{AcademicCourse}, \texttt{Subject},
+      \texttt{SubjectGroup}, \texttt{SubjectMembership} \\
+    Definición de exámenes &
+      \texttt{Exam}, \texttt{ExamModel}, \texttt{PageProfile},
+      \texttt{RecognitionZone}, \texttt{Problem},
+      \texttt{RubricCriterion}, \texttt{ExamConvocation} \\
+    Ejecución de exámenes &
+      \texttt{ExamInstance}, \texttt{ExamPage} \\
+    Corrección &
+      \texttt{AssignmentRule}, \texttt{Annotation}, \texttt{Grade} \\
+    Revisión &
+      \texttt{ExamReview}, \texttt{ReviewRequest} \\
+    Operación &
+      \texttt{Notification}, \texttt{AuditLog} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Los subdominios \emph{Identidad}, \emph{Operación} y la entidad
+\texttt{AcademicCourse} configuran la infraestructura multi-tenant del
+sistema; el resto modela el ciclo académico desde la asignatura hasta la
+revisión final del examen corregido. El subdominio de \emph{definición
+de exámenes} (\cref{fig:scdee-exams-class}) es el de mayor complejidad
+estructural, por la separación entre el examen como entidad académica
+(\texttt{Exam}), sus variantes estructurales (\texttt{ExamModel}), la
+definición espacial de cada página (\texttt{PageProfile},
+\texttt{RecognitionZone}) y la descomposición en problemas evaluables
+(\texttt{Problem}, \texttt{RubricCriterion}). El subdominio de
+\emph{ejecución} (\cref{fig:scdee-instances-class}) materializa cada
+examen para cada alumno convocado en una \texttt{ExamInstance} con sus
+\texttt{ExamPage}.
+
+\begin{figure}[Diagrama de clases: definición de exámenes]%
+              {fig:scdee-exams-class}%
+              {Diagrama de clases del subdominio de definición de exámenes.}
+  \image{}{0.85\textheight}{graph_models/exams_class}
+\end{figure}
+
+\begin{figure}[Diagrama de clases: ejecución de exámenes]%
+              {fig:scdee-instances-class}%
+              {Diagrama de clases del subdominio de ejecución de exámenes.}
+  \image{\textwidth}{}{graph_models/instances_class}
+\end{figure}
+
+Los diagramas de clase del resto de subdominios se incluyen en
+\cref{AP:CLASS-DIAGRAMS}.

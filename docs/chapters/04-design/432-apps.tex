@@ -1,0 +1,86 @@
+El backend se descompone en trece aplicaciones Django, cada una con un
+dominio funcional propio, sus modelos, sus servicios y sus pruebas. Esta
+división facilita el mantenimiento (cada cambio se circunscribe a una
+aplicación), hace explícitos los acoplamientos entre dominios (a través
+de \textit{imports} y claves foráneas) y permite el desarrollo paralelo
+sobre aplicaciones independientes. La \cref{table:des-apps} resume la % TODO cuadro en vez de tabla
+responsabilidad de cada una.
+
+\begin{table}[Aplicaciones Django del backend]%
+            {table:des-apps}%
+            {Aplicaciones Django del backend del SCDEE.}
+  \small
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabular}{p{2.5cm} p{11cm}}
+    \hline
+    \textbf{Aplicación} & \textbf{Responsabilidad} \\
+    \hline
+    \texttt{core} &
+      Utilidades transversales: modelos abstractos
+      (\texttt{UUIDModel}, \texttt{TimestampedModel},
+      \texttt{OrganizationOwnedModel}), \textit{middleware}
+      (contexto multi-tenant, anti-caché), gestor de contexto del
+      \dfn{tenant}, paginación, \textit{throttling},
+      \textit{hooks} de OpenAPI, \textit{health checks}. \\
+    \texttt{accounts} &
+      Autenticación de usuarios, modelo \texttt{User},
+      \dfnpl{plugin} de autenticación intercambiables
+      (\texttt{jwtV1}, configuraciones preparatorias para
+      \acs{saml} y \acs{oidc}), \textit{backend} \acs{drf},
+      lista negra de \textit{tokens} revocados. \\
+    \texttt{organizations} &
+      Modelo \texttt{Organization} y su configuración por
+      \dfn{tenant} (\texttt{OrganizationConfig}); búsqueda y
+      administración de organizaciones por el superadministrador. \\
+    \texttt{subjects} &
+      Asignaturas (\texttt{Subject}), grupos
+      (\texttt{SubjectGroup}) y membresías con rol
+      (\texttt{SubjectMembership}); permisos contextuales por
+      asignatura. \\
+    \texttt{courses} &
+      Curso académico (\texttt{AcademicCourse}) como contenedor
+      temporal de las asignaturas. \\
+    \texttt{exams} &
+      Definición de exámenes: \texttt{Exam}, \texttt{ExamModel},
+      \texttt{PageProfile}, \texttt{RecognitionZone},
+      \texttt{Problem}, \texttt{RubricCriterion},
+      \texttt{ExamConvocation}. \\
+    \texttt{instances} &
+      Ejecución y ciclo de vida de exámenes: \texttt{ExamInstance},
+      \texttt{ExamPage}, máquinas de estados de instancia y
+      página. \\
+    \texttt{ingestion} &
+      Recepción de páginas escaneadas: reconocedores como
+      \dfnpl{plugin}, \textit{dispatcher} de asignación de páginas
+      a \texttt{ExamInstance}, comando de gestión
+      \texttt{sftp\_watcher}, tareas Celery del \textit{pipeline}
+      de reconocimiento. \\
+    \texttt{annotations} &
+      Anotaciones de corrección sobre las páginas escaneadas
+      (\texttt{Annotation}, \texttt{AnnotationType}): audio, texto,
+      formas geométricas. \\
+    \texttt{grading} &
+      Reglas de asignación corrector-instancia
+      (\texttt{AssignmentRule}) y registro de calificaciones
+      (\texttt{Grade}). \\
+    \texttt{reviews} &
+      Revisión por parte del alumno de exámenes corregidos:
+      \texttt{ExamReview}, \texttt{ReviewRequest}, ventanas de
+      revisión. \\
+    \texttt{notifications} &
+      Notificaciones por correo electrónico, plantillas
+      internacionalizadas, tareas Celery de envío. \\
+    \texttt{audit} &
+      Log de auditoría de eventos del sistema
+      (\texttt{AuditLog}), accesible al superadministrador. \\
+    \hline
+  \end{tabular}
+\end{table}
+
+El listado completo de servicios expuestos por cada aplicación, con la
+firma y el comportamiento de cada uno, se incluye en
+\cref{AP:SERVICES}. En el cuerpo de la memoria se desarrollan únicamente
+los flujos críticos del sistema (ingesta y reconocimiento en
+\cref{SEC:DES-INGEST}, ciclo de vida de la instancia en
+\cref{SEC:DES-LIFECYCLE}) y los aspectos de seguridad y de contrato
+\acs{api} en \cref{SEC:DES-SECURITY,SEC:DES-API}.

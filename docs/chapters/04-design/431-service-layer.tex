@@ -1,0 +1,49 @@
+Como se anticipó en \cref{SS:DES-COMPONENTS}, cada aplicación del backend
+organiza su código en una arquitectura por capas con una capa de servicios
+explícita en el sentido de Fowler \cite{fowler2002}. La separación obedece
+a una división funcional clara, no meramente convencional, y permite que
+cada nivel evolucione con responsabilidades acotadas:
+
+\begin{itemize}
+
+  \item \textbf{Modelos.} Definen la estructura persistente del dominio
+  mediante el \acs{orm} de Django. Su responsabilidad se limita a la
+  representación de los datos, las relaciones entre entidades y las
+  restricciones de integridad expresables en la base de datos. No
+  contienen lógica de negocio salvo la estrictamente derivable de
+  invariantes del modelo (validadores, métodos de utilidad sin efectos
+  secundarios).
+
+  \item \textbf{\textit{Serializers}.} Definidos sobre \acs{drf},
+  traducen entre representaciones \acs{json} externas y objetos del
+  modelo, validan los datos de entrada conforme a las restricciones del
+  dominio y construyen las representaciones de salida. Su
+  responsabilidad es exclusivamente de transformación y validación; no
+  consultan ni mutan estado más allá del objeto que serializan.
+
+  \item \textbf{Vistas.} Implementadas como \texttt{ViewSets} y vistas
+  genéricas de \acs{drf}, son el punto de contacto con el ciclo
+  \acs{http}. Resuelven el enrutado, aplican autenticación y
+  autorización mediante clases de permisos contextuales, y delegan la
+  lógica de la operación a la capa de servicios.
+
+  \item \textbf{Servicios.} Encapsulan la lógica de negocio reutilizable
+  y desacoplada de \acs{http}. Operan sobre objetos del modelo y
+  devuelven resultados estructurados que las vistas serializan o
+  convierten en respuestas. Esta capa permite reusar la misma operación
+  desde una vista síncrona, desde una tarea asíncrona de Celery, desde
+  un comando de gestión o desde una prueba sin duplicar código.
+
+\end{itemize}
+
+Esta separación tiene tres consecuencias prácticas en el SCDEE. Primero,
+la lógica de negocio queda exenta de dependencias \acs{http}, lo que
+simplifica las pruebas unitarias: los servicios se prueban inyectando
+objetos del dominio directamente, sin levantar el servidor ni el cliente
+de \acs{drf}. Segundo, la duplicación entre puntos de entrada se elimina:
+el flujo de creación de una \texttt{ExamInstance} es idéntico se invoque
+desde la vista \texttt{POST /exams/\{id\}/instances/} o desde la tarea de
+ingesta tras el reconocimiento exitoso de un código \acs{qr}. Tercero,
+la sustitución de una capa por otra (cambiar \acs{http} por \textit{gRPC},
+sustituir \acs{drf} por otro marco, exponer la lógica como un comando de
+gestión) no requiere reescribir la lógica de negocio.

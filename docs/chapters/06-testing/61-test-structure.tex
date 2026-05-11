@@ -1,0 +1,13 @@
+El backend dispone de aproximadamente cuarenta archivos de pruebas
+distribuidos en tres niveles. Las \textbf{pruebas unitarias} acompañan a
+cada aplicación bajo \texttt{apps/<app>/tests/} y cubren modelos,
+\textit{serializers} y servicios sin levantar el cliente \acs{http}.
+Las \textbf{pruebas de integración} (\texttt{tests/integration/})
+verifican flujos completos cruzando varias aplicaciones: ciclo de vida
+de una \texttt{ExamInstance}, corrección y exportación de calificaciones.
+Las \textbf{pruebas de calidad de \acs{ocr}} (\texttt{tests/quality/}) y
+las \textbf{pruebas de carga} (\texttt{tests/load/}) viven aparte porque
+su ejecución es manual y requiere un entorno preparado. La ejecución
+habitual durante el desarrollo se invoca mediante \texttt{make check},
+que combina \texttt{ruff}, \texttt{mypy} y \texttt{pytest} en un único
+comando.

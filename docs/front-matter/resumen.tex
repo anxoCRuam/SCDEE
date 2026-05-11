@@ -1,0 +1,34 @@
+La corrección de exámenes escritos es un proceso intensivo
+en tiempo que carece de plataformas adaptadas al contexto académico
+español. Las soluciones existentes, mayoritariamente extranjeras,
+presentan barreras de idioma e integración incompleta con los sistemas
+de gestión académica nacionales.
+
+Este Trabajo Fin de Grado presenta el diseño y la implementación del
+\dfn{backend} del SCDEE (Sistema de Corrección Digital de Exámenes
+Escritos), un servicio distribuido \dfn{multitenant} que automatiza el
+ciclo completo de corrección desde la entrega física de las páginas
+escaneadas hasta el archivo definitivo del examen corregido. El sistema
+combina un \textit{pipeline} de ingesta basado en códigos \acs{qr} y
+reconocimiento óptico tolerante a errores con una arquitectura modular
+en trece aplicaciones Django y una capa de servicios extensible
+mediante \dfnpl{plugin} intercambiables (autenticación, motores de
+\acs{ocr}, reconocedores de zonas).
+
+Desde la perspectiva del coordinador, el sistema cubre la creación de
+exámenes con sus modelos, la asignación declarativa de correctores, la
+captura de anotaciones (texto enriquecido, trazos a lápiz, audio) y la
+calificación por rúbrica o manual. Desde la perspectiva del gestor de
+la organización, ofrece configuración por \dfn{tenant}, importación y
+exportación a \acs{csv}, cierre automatizado de cursos académicos e
+internacionalización de notificaciones.
+
+La validación combina una cobertura de cai un 90\,\% en pruebas unitarias y
+de integración, pruebas de carga con Locust que verifican el
+\cref{rnf:concurrency} en operación normal, y comandos de demostración
+reproducibles del \textit{pipeline} crítico. La arquitectura queda
+preparada para evolucionar hacia despliegues de producción, integración
+con sistemas \acs{lms} y federación de identidad institucional.
+
+\palabrasclave{corrección digital de exámenes, multi-tenancy, OCR,
+Django, sistemas distribuidos, arquitectura backend}

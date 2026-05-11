@@ -1,0 +1,49 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FEFEFE
+title Autenticación JWT y establecimiento del contexto de tenant
+
+actor "Usuario" as U
+participant "POST /auth/login/" as LOGIN
+participant "JWTAuthPlugin" as PLUGIN
+participant "User\n(unfiltered)" as USER
+database "PostgreSQL" as DB
+participant "JWTAuthentication\n(backend DRF)" as BACKEND
+participant "ClearTenantContext\nMiddleware" as MIDDLEWARE
+participant "Vista protegida\n(ej. /profile/)" as VIEW
+database "Redis\n(blacklist)" as REDIS
+
+== 1. Login ==
+U -> LOGIN: POST {email, password}
+LOGIN -> PLUGIN: authenticate(email, password)
+PLUGIN -> USER: get(email=email)
+USER -> DB: SELECT ... WHERE email = ?
+PLUGIN -> PLUGIN: check_password(password)
+PLUGIN -> PLUGIN: _validate_user_can_authenticate()\n(¿usuario activo? ¿org activa?)
+PLUGIN -> REDIS: get_user_token_generation(user_id)
+PLUGIN -> PLUGIN: _generate_token_pair(user)\n- access_token (15 min)\n- refresh_token (7 días)\n- payload: user_id, org_id, is_staff, jti, ...
+PLUGIN --> LOGIN: TokenPair
+LOGIN -> DB: log_event(LOGIN_SUCCESS)
+LOGIN --> U: 200 {access_token, refresh_token, user}
+
+== 2. Petición autenticada ==
+U -> VIEW: GET /profile/\nAuthorization: Bearer <access_token>
+VIEW -> BACKEND: authenticate(request)
+BACKEND -> PLUGIN: validate_access_token(token)
+PLUGIN -> PLUGIN: decodifica JWT (HS256)
+PLUGIN -> REDIS: is_blacklisted(jti)?
+PLUGIN -> REDIS: get_user_token_generation(user_id)\n(compara con user_gen del token)
+PLUGIN --> BACKEND: TokenPayload(user_id, org_id, is_staff, ...)
+BACKEND -> USER: unfiltered.get(pk=user_id)
+USER -> DB: SELECT ... WHERE id = ?
+BACKEND -> BACKEND: ¿user.is_active? ¿org.is_active?
+BACKEND -> BACKEND: set_current_organization_id(org_id)
+BACKEND --> VIEW: (user, token_payload)
+VIEW -> VIEW: procesa petición (TenantManager\nfiltra automáticamente por org_id)
+VIEW --> U: 200 {datos del perfil}
+
+== 3. Limpieza del contexto ==
+VIEW -> MIDDLEWARE: (al finalizar la respuesta)
+MIDDLEWARE -> MIDDLEWARE: clear_current_organization_id()
+
+@enduml

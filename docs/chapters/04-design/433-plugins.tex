@@ -1,0 +1,10 @@
+Conforme al patrón \textit{Strategy} introducido en
+\cref{SS:SOTA-PLUGINS}, varios componentes del SCDEE están construidos
+de forma intercambiable mediante el catálogo de Gamma et~al.
+\cite{gof1994designpatterns}, lo que permite sustituir su implementación
+sin modificar el resto del código. Tres puntos del backend
+siguen esta arquitectura: los \dfnpl{plugin} de autenticación, los motores
+de \acs{ocr} y los reconocedores de zonas. Esta arquitectura ha facilitado
+la incorporación incremental de funcionalidad durante el desarrollo del
+proyecto y prepara al sistema para integrar futuras tecnologías sin
+reorganizar su núcleo.

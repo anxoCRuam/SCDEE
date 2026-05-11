@@ -1,0 +1,61 @@
+La \cref{table:openapi-catalog} resume las colecciones de % TODO cuadro en vez de tabla
+\textit{endpoints} de la \acs{api}, ordenadas por su rol funcional en
+el sistema: identidad y organización, dominio académico, ciclo de vida
+del examen, operaciones de corrección y servicios transversales.
+
+\begingroup
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{longtable}{p{3cm} c p{8.5cm}}
+\caption[Catálogo de recursos expuestos por la API REST del SCDEE]%
+        {Catálogo de recursos expuestos por la \acs{api}
+        \acs{rest} del SCDEE.}
+\label{table:openapi-catalog} \\
+\hline
+\textbf{Recurso} & \textbf{\textit{Endpoints}} & \textbf{Descripción} \\
+\hline
+\endfirsthead
+
+\multicolumn{3}{c}{\tablename\ \thetable: continúa de la página anterior} \\
+\hline
+\textbf{Recurso} & \textbf{\textit{Endpoints}} & \textbf{Descripción} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{3}{r}{\textit{Continúa en la siguiente página}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+\texttt{auth}             & 3  & \textit{Login}, \textit{refresh} y \textit{logout} contra el \dfn{plugin} de autenticación activo \\
+\texttt{profile}          & 1  & Datos y preferencias del usuario autenticado \\
+\texttt{users}            & 5  & Gestión de usuarios por parte del gestor de organización \\
+\texttt{organizations}    & 1  & Información de la organización inquilino \\
+\texttt{config}           & 1  & Configuración por organización \\
+\texttt{courses}          & 3  & Cursos académicos y transiciones \\
+\texttt{subjects}         & 9  & Asignaturas, grupos y permisos por asignatura \\
+\texttt{memberships}      & 1  & Membresías de asignatura \\
+\texttt{my-subjects}      & 1  & Asignaturas en las que participa el usuario actual \\
+\texttt{exams}            & 10 & Exámenes y operaciones de configuración del coordinador \\
+\texttt{models}           & 5  & Modelos de examen (variantes A, B\ldots) \\
+\texttt{page-profiles}    & 1  & Perfiles de página de cada modelo \\
+\texttt{zones}            & 1  & Zonas de reconocimiento (\acs{qr}, \acs{ocr}, casillas) \\
+\texttt{problems}         & 1  & Problemas y rúbricas de un examen \\
+\texttt{assignment-rules} & 1  & Reglas declarativas de asignación de correctores \\
+\texttt{my-exams}         & 1  & Exámenes asignados al usuario actual \\
+\texttt{instances}        & 13 & Instancias de examen, máquina de estados y gestión de páginas \\
+\texttt{orphan-pages}     & 2  & Páginas no asignadas tras la ingesta \\
+\texttt{recognition}      & 2  & Ingesta de páginas y reconocimiento óptico \\
+\texttt{annotations}      & 3  & Anotaciones de texto, trazos y audio \\
+\texttt{my-tasks}         & 1  & Tareas de corrección del usuario actual \\
+\texttt{review-requests}  & 1  & Solicitudes de revisión por parte del alumno \\
+\texttt{notifications}    & 3  & Notificaciones \textit{in-app} del usuario actual \\
+\texttt{search}           & 1  & Búsqueda jerárquica sobre la organización \\
+\texttt{audit-logs}       & 1  & \textit{Log} de auditoría inmutable \\
+\hline
+\textbf{Total}            & \textbf{72} & \\
+
+\end{longtable}
+\endgroup

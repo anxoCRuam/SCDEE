@@ -1,0 +1,12 @@
+{% load i18n %}{% blocktrans with name=first_name %}Hi {{ name }},{% endblocktrans %}
+
+{% blocktrans %}Your account on the Digital Exam Correction System (SCDEE) has been created.{% endblocktrans %}
+
+{% trans "Login credentials:" %}
+  {% trans "Email" %}: {{ user_email }}
+  {% trans "Password" %}: {{ raw_password }}
+
+{% trans "We recommend that you change your password on first login." %}
+
+{% trans "Best regards" %},
+SCDEE

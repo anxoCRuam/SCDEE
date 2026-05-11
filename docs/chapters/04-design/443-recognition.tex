@@ -1,0 +1,13 @@
+La tarea \texttt{recognize\_page\_task}, ejecutada en un \textit{worker}
+de Celery, recibe el binario de la página, ejecuta el reconocimiento sobre
+ella y almacena el resultado en el \texttt{ExamPage} correspondiente.
+
+El reconocimiento de cada zona se delega a un \textit{recognizer}
+especializado, conforme al patrón \textit{Strategy} descrito en
+\cref{SS:DES-PLUGINS}. La interfaz común de los \textit{recognizers}
+permite que el sistema invoque a cada uno con la misma signatura (un
+fragmento de imagen y los parámetros de la zona) y obtenga una respuesta
+uniforme con valor y confianza.
+
+Una propiedad de diseño relevante es que el reconocimiento es idempotente
+y transparente al orden de llegada.

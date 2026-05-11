@@ -1,0 +1,36 @@
+Las pruebas de carga se ejecutan con Locust contra el \textit{endpoint}
+\texttt{/api/v1/} para verificar el \cref{rnf:concurrency}. Se han
+ejecutado tres escenarios con perfiles de carga representativos:
+
+\begin{enumerate}
+
+  \item \textbf{Ingesta sostenida.} Simulación de una cabina de escaneo
+  entregando páginas a través de la \acs{api} de ingesta. El sistema
+  procesó 14\,260 peticiones a una tasa de 23,8 \textit{RPS} sin
+  errores, con latencia mediana inferior a un milisegundo.
+
+  \item \textbf{Corrección concurrente.} Simulación de correctores
+  anotando y calificando simultáneamente. El sistema procesó cerca de
+  5\,900 peticiones sin errores, con latencias medianas de 14 a 44
+  milisegundos por operación, satisfaciendo el objetivo de p95 inferior
+  a 500 milisegundos para los \textit{endpoints} \acs{crud}.
+
+  \item \textbf{Pico de publicación.} Simulación de la situación más
+  exigente: la publicación de calificaciones disparando un acceso masivo
+  de alumnos consultando y descargando sus exámenes. Bajo este perfil,
+  el sistema mantiene la latencia de los \textit{endpoints} ligeros pero
+  presenta degradación significativa en
+  \texttt{student/instance/download} (alrededor del 21\,\% de errores
+  \acs{http} 500 y latencias medianas de 24 segundos), lo que excede el
+  objetivo de respuesta sin errores.
+
+\end{enumerate}
+
+Los dos primeros escenarios validan el cumplimiento del
+\cref{rnf:concurrency} en operación normal. El tercer escenario
+identifica un cuello de botella consistente con el uso del servidor de
+desarrollo de Django (\texttt{runserver}) en lugar de un servidor
+\acs{wsgi} dedicado, lo que se aborda en la línea de trabajo futuro
+descrita en el \cref{CAP:CONCLUSIONS}. El detalle completo de los
+escenarios, los gráficos de latencia y la lista de errores observados
+se incluyen en \cref{AP:TEST-RESULTS}.

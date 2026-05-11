@@ -1,0 +1,20 @@
+\begin{figure}[Diagrama de despliegue del SCDEE]%
+              {fig:scdee-deployment}%
+              {Diagrama de despliegue del backend del SCDEE.}
+  \image{}{}{mermaid/scdee_deployment}
+\end{figure}
+
+El despliegue del SCDEE se gestiona mediante un único fichero
+\texttt{docker-compose.yml} que levanta cada servicio como un contenedor
+independiente (\cref{fig:scdee-deployment}), satisfaciendo el
+\cref{rnf:deployment} y permitiendo reproducir un entorno completo en
+cualquier máquina con Docker. Los puertos canónicos de cada servicio se
+exponen únicamente en la red interna; solo el servidor \acs{api} publica
+un puerto público para el acceso del \dfn{frontend}. Los volúmenes Docker
+nombrados garantizan la persistencia de los datos entre reinicios
+(PostgreSQL, Redis, MinIO y la bandeja de ingesta), y la configuración
+específica de entorno se externaliza en ficheros \texttt{.env}: las claves
+sensibles (clave maestra de cifrado del \acs{dni}, credenciales de la base
+de datos, \textit{tokens} de servicios externos) se gestionan
+exclusivamente como variables de entorno y nunca se incorporan al
+repositorio de código.

@@ -1,0 +1,24 @@
+La medición de cobertura mencionada en \cref{SEC:TEST-COVERAGE} se
+desglosa por aplicación Django en la \cref{table:cdetail-coverage}. % TODO cuadro en vez de tabla
+
+\begin{table}[Cobertura del código por aplicación]%
+            {table:cdetail-coverage}%
+            {Cobertura del código de aplicación por \textit{app} Django,
+             excluyendo tests y migraciones.}
+  \small
+  \renewcommand{\arraystretch}{1.3} % TODO fix percentages
+  \begin{tabular}{l r r r}
+    \hline
+    \textbf{App} & \textbf{Sentencias} & \textbf{No cubiertas} & \textbf{Cobertura} \\
+    \hline
+    app1        & lines & uncovered & coverage\,\% \\
+    \hline
+    \textbf{Total}  & \textbf{1} & \textbf{1} & \textbf{88\,\%} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+La columna ``Cobertura'' refleja el porcentaje de sentencias del código
+de aplicación efectivamente ejecutadas por las pruebas. La cifra agregada del
+informe que incluye estos archivos asciende al 88\,\%
+(\cref{SEC:TEST-COVERAGE}).

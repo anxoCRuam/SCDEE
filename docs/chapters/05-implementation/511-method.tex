@@ -1,0 +1,15 @@
+El SCDEE se ha desarrollado siguiendo una metodología iterativa e
+incremental por fases dirigidas por requisitos. Cada fase agrupa un
+conjunto coherente de requisitos funcionales del \cref{CAP:ANALYSIS}, y
+el desarrollo de la fase materializa dentro de su dominio el ciclo
+completo de análisis, diseño, implementación y pruebas. La fase queda
+cerrada cuando los requisitos que cubre están operativos y verificados,
+lo que permite enlazar con la siguiente con una base estable.
+
+Las fases se ordenaron por dependencias técnicas: una fase posterior
+puede asumir que toda la funcionalidad de las anteriores está disponible
+como infraestructura. La fase 1 (autenticación y organizaciones) habilita
+el contexto multi-tenant y los permisos contextuales que toda fase
+posterior asume; la fase 4 (exámenes y modelos) define las entidades que
+la fase 5 (instancias) referencia; la fase 6 (ingesta) asume que la
+máquina de estados de la fase 5 está construida.

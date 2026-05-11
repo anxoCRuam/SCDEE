@@ -1,0 +1,50 @@
+Las catorce fases del proyecto y los requisitos principales que cubre
+cada una se resumen en la \cref{table:impl-phases}. % TODO cuadro en vez de tabla
+
+\begin{table}[Fases del proyecto]%
+            {table:impl-phases}%
+            {Plan de trabajo en catorce fases.}
+  \small
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabular}{c p{7cm} p{4cm}}
+    \hline
+    \textbf{Fase} & \textbf{Nombre} & \textbf{Requisitos principales} \\
+    \hline
+    0  & Configuración del proyecto y arquitectura base
+       & RNF-3, RNF-9, RNF-13 \\
+    1  & Autenticación y organizaciones
+       & RF-1, RF-2, RF-16.3 \\
+    2  & Cursos académicos
+       & RF-3 \\
+    3  & Asignaturas, grupos y membresías
+       & RF-4, RF-5 \\
+    4  & Exámenes, modelos, perfiles de página y \acs{pdf} instrumentado
+       & RF-6 \\
+    5  & Instancias de examen, máquina de estados y corrección
+       & RF-7, RF-8, RF-11 \\
+    6  & Ingesta, dispatcher de reconocedores y ensamblado
+       & RF-9 \\
+    7  & Anotaciones (texto, stylus, audio)
+       & RF-10 \\
+    8  & Revisiones de examen
+       & RF-12 \\
+    9  & Notificaciones y correos electrónicos
+       & RF-13 \\
+    10 & Exportación, búsqueda avanzada y configuración
+       & RF-14, RF-15 \\
+    11 & Tareas de mantenimiento y borrado automático
+       & RF-15.3, RF-15.4 \\
+    12 & Seguridad avanzada, protección de páginas y pruebas
+       & RF-16, RNF-6, RNF-12 \\
+    13 & Preparación para \acs{sso} y despliegue final
+       & RF-1.5, RNF-3 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+La distribución refleja el tamaño relativo de cada fase, calculado a
+partir de dos métricas: el número de líneas de código asociadas al
+dominio funcional de la fase y el número de subrequisitos que cubre. Las
+fases más voluminosas son la 1 (autenticación y organizaciones), la 5
+(instancias y máquina de estados de corrección) y la 12 (seguridad
+avanzada y pruebas, de carácter transversal).

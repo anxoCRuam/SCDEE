@@ -1,0 +1,56 @@
+El proyecto deja abiertas varias líneas de evolución, agrupadas en
+cuatro bloques temáticos.
+
+\textbf{Endurecimiento para despliegue en producción.} El primer bloque
+recoge las acciones necesarias para llevar el sistema al despliegue en
+producción real. Lo componen: la sustitución del servidor de desarrollo
+de Django por un servidor \acs{wsgi} dedicado (Gunicorn o uWSGI), que
+resuelve el cuello de botella detectado en \cref{SEC:TEST-LOAD}; la
+migración de \texttt{threading.local} a \texttt{contextvars}, requerida
+antes de introducir cualquier código asíncrono o \acs{asgi} para
+preservar las garantías de aislamiento multi-tenant; la separación de
+los \textit{workers} de Celery por cola en procesos independientes
+(\texttt{default}, \texttt{recognition}, \texttt{notifications}); la
+incorporación de un proxy inverso (nginx o Traefik) para terminación
+\acs{ssl}, servicio de estáticos y enrutado a múltiples instancias; y
+la migración a aislamiento físico por esquema PostgreSQL separado por
+organización, complementada con la separación de \textit{buckets}
+MinIO por \dfn{tenant}.
+
+\textbf{Integraciones externas.} El sistema está preparado
+arquitectónicamente para integraciones que aún no han sido
+materializadas. La activación efectiva del \acs{sso} sobre la
+arquitectura de \dfnpl{plugin} ya descrita
+(\cref{rf:auth:sso}) permitiría a las organizaciones
+grandes autenticar contra sus \acsp{idp} corporativos (\acs{saml} 2.0,
+\acs{oidc}) sin cambios en el \dfn{frontend}. La integración nativa
+con \acsp{lms} mediante \acs{lti} 1.3 abriría el sistema a Moodle,
+Canvas y similares. La conexión con cabinas de escaneo reales mediante
+\acs{sftp} nativo sustituiría al \textit{watcher} sobre volumen Docker.
+La reutilización de las bases de datos de identidades institucionales
+(\acs{ldap}, Active Directory) reduciría la fricción para usuarios de
+organizaciones que ya tienen un directorio centralizado.
+
+\textbf{Funcionalidad ampliada.} Varias líneas de mejora funcional son
+razonables a futuro: notificaciones en tiempo real mediante WebSockets
+sobre \acs{asgi}; asistencia mediante \acs{ia} en la creación de
+exámenes y en la detección automática de copia o plagio; reconocimiento
+por \acs{ocr} de respuestas escritas a mano con \textit{stylus};
+estadísticas comparativas entre convocatorias del mismo examen para
+detectar derivas en la dificultad; y la delegación del marcado de la
+marca de agua al \dfn{frontend} mediante \acsp{uri} \textit{presigned},
+lo que permitiría aplicar las cuatro medidas de protección anti-descarga
+(\cref{SEC:DES-SECURITY}) sin la incompatibilidad actual entre la marca
+de agua dinámica y las \acsp{uri} temporales.
+
+\textbf{Refinamientos operativos y de UX.} El último bloque agrupa
+mejoras de operación y usabilidad: ampliación de la configuración
+multi-tenant con marca blanca (logo, colores, dominio personalizado),
+cuotas de almacenamiento y \textit{rate limiting} configurables por
+organización; cambio del correo único a nivel global por unicidad por
+organización, eliminando la fricción para usuarios que pertenecen a
+varias instituciones; importaciones masivas asíncronas mediante Celery
+para no bloquear al coordinador durante operaciones grandes; y un
+mecanismo de \textit{logout} que invalide también el \textit{access
+token}, no solo el \textit{refresh token}, mediante una segunda lista
+negra de Redis o un mecanismo equivalente.

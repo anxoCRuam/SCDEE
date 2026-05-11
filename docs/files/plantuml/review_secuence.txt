@@ -1,0 +1,72 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FEFEFE
+title Ciclo de vida de una revisión de examen
+
+actor "Coordinador" as COORD
+actor "Estudiante" as STU
+actor "Corrector" as CORR
+participant "ReviewCreateView" as RCV
+participant "Celery Beat\n(process_review_openings)" as OPEN
+participant "ReviewRequestSubmitView" as RRSV
+participant "Celery Beat\n(process_review_closings)" as CLOSE
+participant "ReviewRequestResolveView" as RRRV
+participant "Notificaciones\n(services)" as NOTIF
+database "PostgreSQL" as DB
+participant "Instancia\n(ExamInstance)" as INST
+
+== 1. Crear ventana de revisión ==
+COORD -> RCV: POST /exams/{id}/review/\n{start_date, end_date}
+RCV -> DB: Check: todas las instancias\nestán PUBLICADAS
+RCV -> DB: INSERT ExamReview\n(status=SCHEDULED)
+RCV --> COORD: 201 Created
+
+== 2. Apertura automática ==
+OPEN -> DB: SELECT reviews where\nstart_date <= now AND status=SCHEDULED
+loop para cada review
+    OPEN -> DB: UPDATE ExamInstance\nstatus=IN_REVIEW (todas PUBLICADAS)
+    OPEN -> DB: UPDATE ExamReview.status=OPEN
+    OPEN -> NOTIF: notify_review_opened(exam, students)
+    NOTIF -> NOTIF: crea notificaciones in-app\n+ envía emails (si procede)
+end
+
+== 3. Solicitud de revisión por estudiante ==
+STU -> RRSV: POST /instances/{id}/review-requests/\n[{problem_id, message}]
+RRSV -> DB: Check: ¿instancia.status == IN_REVIEW?
+RRSV -> DB: Check: ¿review.status == OPEN?
+RRSV -> DB: INSERT ReviewRequest\n(resolved=False)
+RRSV -> NOTIF: _notify_correctors (agrupado\npor AssignmentRule)
+NOTIF -> CORR: notificación de nuevas solicitudes
+RRSV --> STU: 201 Created
+
+== 4. Cierre automático de la ventana ==
+CLOSE -> DB: SELECT reviews where\nend_date <= now AND status=OPEN
+loop para cada review
+    CLOSE -> DB: SELECT instancias IN_REVIEW
+    alt instancia SIN solicitudes
+        CLOSE -> DB: UPDATE ExamInstance.status=FINALIZED
+    else instancia CON solicitudes
+        CLOSE -> DB: UPDATE ExamInstance.status=PENDING_REVIEW
+    end
+    CLOSE -> DB: UPDATE ExamReview.status=CLOSED
+    CLOSE -> NOTIF: notify_review_requests_summary\n(por corrector, agrupado)
+    NOTIF -> CORR: "Tienes X solicitudes pendientes de revisión"
+end
+
+== 5. Resolución por corrector ==
+CORR -> RRRV: PATCH /review-requests/{id}/resolve/\n{resolver_message}
+RRRV -> DB: Check: ¿usuario tiene permiso?\n(can_manage_reviews o regla de asignación)
+RRRV -> DB: UPDATE ReviewRequest\nresolved=True, resolver=CORR
+RRRV -> DB: check_instance_finalization()
+alt todas las solicitudes resueltas
+    RRRV -> INST: UPDATE status=FINALIZED
+    RRRV -> NOTIF: notify_review_result(instancia)
+    NOTIF -> STU: "Revisión de tu examen completada.\nNota final: X.YZ"
+end
+RRRV -> DB: check_review_completion()
+opt todas las solicitudes de la review resueltas
+    RRRV -> DB: UPDATE ExamReview.status=COMPLETED
+end
+RRRV --> CORR: 200 OK
+
+@enduml

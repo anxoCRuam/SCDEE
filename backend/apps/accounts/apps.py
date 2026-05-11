@@ -12,3 +12,8 @@ class AccountsConfig(AppConfig):
     name = "apps.accounts"
     label = "accounts"
     verbose_name = "User Accounts"
+
+    def ready(self):
+        # Register drf-spectacular extension for JWTAuthentication.
+        # Must be imported here (not at module level) to avoid AppRegistryNotReady.
+        import apps.core.openapi.serializers  # noqa: F401

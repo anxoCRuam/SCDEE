@@ -1,0 +1,14 @@
+stateDiagram-v2
+    [*] --> ASSEMBLING
+    ASSEMBLING --> RECEIVED : automática (páginas completas)
+    RECEIVED --> QUEUED : automática (encolar reconocimiento)
+    QUEUED --> PENDING_GRADING : automática (fin reconocimiento)
+    PENDING_GRADING --> GRADED : acción explícita del corrector/coordinador
+    GRADED --> PENDING_GRADING : retroceso permitido
+    GRADED --> PUBLISHED : requiere has_issues=False
+    PUBLISHED --> GRADED : retroceso permitido
+    PUBLISHED --> IN_REVIEW
+    IN_REVIEW --> FINALIZED
+    IN_REVIEW --> PENDING_REVIEW : con solicitud de revisión
+    FINALIZED --> PENDING_REVIEW : retroceso permitido
+    FINALIZED --> ARCHIVED : solo por cambio de curso

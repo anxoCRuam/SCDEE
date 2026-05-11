@@ -1,0 +1,77 @@
+Frente a las plataformas anteriores, el SCDEE adopta varias decisiones de
+diseño diferentes. Primero, las zonas de identificación del estudiante son
+configurables por el creador del examen y admiten múltiples campos asociados
+al examen. Segundo, la exportación de calificaciones se ofrece en un formato
+flexible configurable por la organización y adecuado para su importación en
+SIGMA Academic \cite{sigmaaie}, el sistema de gestión académica que utilizan
+la propia \acs{uam} \cite{uamsigma} y otras universidades españolas.
+Tercero, el sistema admite despliegue dual: cada organización elige entre
+una instalación \textit{on-premise} y una operación en modo \acs{saas}
+gestionada por un proveedor; la arquitectura de contenedores se mantiene
+idéntica en ambos modos. Cuarto, la seguridad se integra en el diseño desde
+el origen y no como una capa añadida: registro de auditoría inmutable de toda
+operación sensible y protección anti-fuga de datos mediante marca de agua
+dinámica con identidad del alumno, \acs{url} temporales con caducidad
+corta y cifrado del \acs{pdf} en tránsito.
+
+% La \ref{table:sota-platform-comparison} sintetiza la comparación.
+
+
+% \begin{table}[Comparativa de plataformas y SCDEE]%
+%             {table:sota-platform-comparison}%
+%             {Comparativa de las plataformas de corrección digital
+%              analizadas con el SCDEE.}
+%   \small
+%   \renewcommand{\arraystretch}{1.35}
+%   \begin{tabular}{p{3.0cm} p{2.7cm} p{2.7cm} p{2.0cm} p{3.0cm}}
+%     \hline
+%     \textbf{Característica} &
+%       \textbf{Crowdmark} &
+%       \textbf{Gradescope} &
+%       \textbf{Akindi} &
+%       \textbf{SCDEE} \\
+%     \hline
+%     Tipo de respuesta evaluada &
+%       Abierta, código, opción múltiple &
+%       Abierta, código, opción múltiple &
+%       Solo opción múltiple &
+%       Abierta \\
+%     Identificación del estudiante &
+%       \acs{ocr} sobre zona fija de portada (ID numérico) y \acs{qr} &
+%       \acs{ocr} y \textit{matching} automático contra lista &
+%       \acs{omr} sobre código de estudiante &
+%       \acs{qr} y \acs{ocr} de zonas configurables, con \textit{matching}
+%       tolerante a errores \\
+%     Asistencia al corrector con IA &
+%       Limitada y opcional &
+%       Agrupamiento de respuestas similares &
+%       No &
+%       No \\
+%     Modelo de despliegue &
+%       \acs{saas} &
+%       \acs{saas} (regiones EU/CA/AU) &
+%       \acs{saas} &
+%       \acs{saas}, con \textit{on-premise} también soportado \\
+%     Integración \acs{lms} nativa &
+%       Canvas, Blackboard, Brightspace, Moodle, \acs{lti} 1.3 &
+%       Canvas, Blackboard, Moodle, D2L, Sakai (\acs{lti} 1.3) &
+%       Canvas, Blackboard &
+%       No nativa en v1.0; trabajo futuro \\
+%     \acs{sso} institucional &
+%       Sí &
+%       Sí (\acs{saml}) &
+%       Vía \acs{lms} &
+%       \Dfn{plugin} diseñado, no implementado en v1.0 \\
+%     Integración con sistemas académicos institucionales &
+%       No documentada &
+%       No documentada &
+%       No documentada &
+%       Exportación de calificaciones en formato SIGMA \\
+%     Origen &
+%       Empresa privada (Toronto, 2014) &
+%       \textit{UC Berkeley} (2014); Turnitin (2018) &
+%       Empresa privada &
+%       \acs{tfg} \acs{eps}-\acs{uam} (2026) \\
+%     \hline
+%   \end{tabular}
+% \end{table}

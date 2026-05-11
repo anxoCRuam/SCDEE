@@ -1,0 +1,24 @@
+Tras un arranque exitoso, los servicios quedan accesibles en los puntos
+recogidos en la \cref{table:install-services}. % TODO cuadro en vez de tabla
+
+\begin{table}[Servicios expuestos tras el arranque]%
+            {table:install-services}%
+            {Servicios expuestos tras el arranque y credenciales por
+             defecto.}
+  \small
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabular}{l l l}
+    \hline
+    \textbf{Servicio} & \textbf{\acs{uri}} & \textbf{Credenciales por defecto} \\
+    \hline
+    \acs{api} \acs{rest}      & \texttt{http://localhost:8000/api/v1/}                  & (las del superusuario) \\
+    Swagger UI                & \texttt{http://localhost:8000/api/schema/swagger-ui/}   & --- \\
+    MinIO Console             & \texttt{http://localhost:9001}                          & \texttt{minioadmin / minioadmin} \\
+    Mailpit                   & \texttt{http://localhost:8025}                          & --- \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Los servicios de monitorización del perfil \texttt{monitoring}
+(pgAdmin, Redis Commander, Flower) se levantan opcionalmente con
+\texttt{docker compose -{}-profile monitoring up -d}.

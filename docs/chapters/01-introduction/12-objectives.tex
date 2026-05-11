@@ -1,0 +1,39 @@
+Para responder al problema descrito y a las carencias identificadas en las
+plataformas existentes, este \acs{tfg} persigue los siguientes objetivos:
+
+\begin{objetive}
+  \item Diseñar e implementar el \dfn{backend} completo del SCDEE como un
+        sistema distribuido \dfn{multitenant}.
+        \label{OBJ:BACKEND-MULTITENANT}
+  \item Diseñar el \dfn{backend} con una arquitectura modular y extensible,
+        sustentada en una clara separación de responsabilidades y en
+        interfaces de \dfnpl{plugin} intercambiables.
+        \label{OBJ:MODULAR-ARCH}
+  \item Construir un \textit{pipeline} de ingesta y reconocimiento de
+        páginas escaneadas que combine identificación por código QR,
+        \acs{ocr} y un \textit{matching} robusto a errores de
+        reconocimiento.
+        \label{OBJ:OCR-PIPELINE}
+  \item Cubrir el ciclo operativo completo de corrección: definición
+        flexible de zonas \acs{ocr} por perfil de página, asignación de
+        correctores mediante reglas configurables, anotaciones de los
+        correctores sobre las páginas escaneadas y entrega controlada de
+        los exámenes corregidos a los alumnos durante la ventana de
+        revisión.
+        \label{OBJ:GRADING-CYCLE}
+  \item Garantizar el cumplimiento de los requisitos de seguridad y
+        protección de datos: cifrado en reposo
+        de datos sensibles, auditoría inmutable, \textit{soft delete} y
+        mecanismos de protección frente a la fuga de exámenes.
+        \label{OBJ:SECURITY-RGPD}
+  \item Generar una documentación OpenAPI completa y autoexplicativa que
+        actúe como contrato formal entre \dfn{backend} y \dfn{frontend}.
+        \label{OBJ:OPENAPI-CONTRACT}
+  \item Validar el sistema mediante pruebas unitarias, de integración y de
+        carga, comprobando el cumplimiento de los requisitos de rendimiento
+        y concurrencia objetivo.
+        \label{OBJ:VALIDATION}
+\end{objetive}
+
+El grado de consecución de cada uno de estos objetivos se discute en
+el \cref{CAP:CONCLUSIONS}.

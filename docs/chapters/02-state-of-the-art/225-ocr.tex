@@ -1,0 +1,22 @@
+El motor de \acs{ocr} por defecto del SCDEE es EasyOCR, una biblioteca
+Python desarrollada por Jaided AI que combina una red neuronal
+convolucional para la detección de texto (CRAFT, \textit{Character Region
+Awareness for Text}) con una red recurrente (CRNN) para el reconocimiento
+de los caracteres detectados \cite{easyocr}. La elección frente a su
+alternativa principal en el ámbito del software libre, Tesseract
+\cite{smith2007tesseract}, atiende a dos razones operativas: el soporte
+nativo de más de ochenta idiomas, incluyendo español, sin requerir la
+instalación manual de paquetes de datos adicionales (Tesseract distribuye
+el español como un paquete \texttt{spa.traineddata} aparte que debe
+descargarse del repositorio oficial o instalarse a través del gestor de
+paquetes del sistema), y una arquitectura basada en redes neuronales más
+reciente. Como motor alternativo, intercambiable mediante el sistema de
+\dfnpl{plugin}, el SCDEE soporta Tesseract, el motor canónico de \acs{ocr}
+de software libre originado en HP Labs en los años noventa, liberado en
+2005 y mantenido por Google desde entonces, que incorpora desde su
+versión~4 un motor basado en LSTM. La comparación cuantitativa entre
+ambos motores en el escenario concreto del SCDEE (identificación
+manuscrita del estudiante, \textit{dataset} propio) se reporta en
+\cref{CAP:TESTING}. El diseño basado en \dfnpl{plugin} permite, además,
+incorporar futuros motores de reconocimiento sin modificar el código del
+\textit{pipeline}.

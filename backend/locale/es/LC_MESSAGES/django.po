@@ -1,0 +1,308 @@
+# SCDEE Spanish translations.
+# Copyright (C) 2026 SCDEE
+# This file is distributed under the same license as the SCDEE project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: SCDEE 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-05 02:48+0000\n"
+"PO-Revision-Date: 2026-05-05 12:00+0000\n"
+"Last-Translator: SCDEE Team <dev@scdee.local>\n"
+"Language-Team: Spanish <es@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: apps/notifications/services/notifications.py:102
+#, python-format
+msgid "Grades published: %(exam)s"
+msgstr "Notas publicadas: %(exam)s"
+
+#: apps/notifications/services/notifications.py:103
+#, python-format
+msgid "The grades for the exam '%(exam)s' have been published."
+msgstr "Las notas del examen '%(exam)s' han sido publicadas."
+
+#: apps/notifications/services/notifications.py:127
+#, python-format
+msgid "Review opened: %(exam)s"
+msgstr "Revisión abierta: %(exam)s"
+
+#: apps/notifications/services/notifications.py:128
+#, python-format
+msgid "The review window for the exam '%(exam)s' is now open."
+msgstr "El plazo de revisión del examen '%(exam)s' ya está abierto."
+
+#: apps/notifications/services/notifications.py:159
+#, python-format
+msgid "Review result: %(exam)s"
+msgstr "Resultado de la revisión: %(exam)s"
+
+#: apps/notifications/services/notifications.py:161
+#, python-format
+msgid "The review for the exam '%(exam)s' has concluded. Your final grade is %(score)s."
+msgstr "La revisión del examen '%(exam)s' ha finalizado. Su nota final es %(score)s."
+
+#: apps/notifications/services/notifications.py:184
+#, python-format
+msgid "Review requests pending: %(exam)s"
+msgstr "Solicitudes de revisión pendientes: %(exam)s"
+
+#: apps/notifications/services/notifications.py:185
+#, python-format
+msgid "%(count)s review request(s) are awaiting your attention for '%(exam)s'."
+msgstr "%(count)s solicitudes de revisión esperan su atención para '%(exam)s'."
+
+#: apps/notifications/services/notifications.py:210
+#, python-format
+msgid "Grading assignment: %(exam)s"
+msgstr "Asignación de corrección: %(exam)s"
+
+#: apps/notifications/services/notifications.py:212
+#, python-format
+msgid "You have been assigned as a grader for '%(exam)s' (%(count)s instance(s))."
+msgstr "Se le ha asignado como corrector/a del examen '%(exam)s' (%(count)s instancia(s))."
+
+#: apps/notifications/services/notifications.py:235
+#, python-format
+msgid "Ingestion incident: %(exam)s"
+msgstr "Incidencia de ingesta: %(exam)s"
+
+#: apps/notifications/services/notifications.py:236
+#, python-format
+msgid "Ingestion incidents have been detected for '%(exam)s': %(detail)s."
+msgstr "Se han detectado incidencias de ingesta para el examen '%(exam)s': %(detail)s."
+
+#: apps/notifications/services/notifications.py:238
+msgid "see the incidents panel"
+msgstr "consulte el panel de incidencias"
+
+#: apps/notifications/services/notifications.py:272
+msgid "Upcoming automatic deletion"
+msgstr "Próximo borrado automático"
+
+#: apps/notifications/services/notifications.py:274
+#, python-format
+msgid "An automatic deletion will run in %(days)s day(s); %(exams)s exam(s) will be removed."
+msgstr "Se ejecutará un borrado automático en %(days)s día(s); se eliminarán %(exams)s examen(es)."
+
+#: apps/notifications/templates/notifications/assignment_created.txt:1 ...
+#, python-format
+msgid "Hi %(name)s,"
+msgstr "Hola %(name)s,"
+
+#: apps/notifications/templates/notifications/assignment_created.txt:3
+#, python-format
+msgid "You have been assigned as a grader for the exam \"%(exam)s\"."
+msgstr "Se le ha asignado como corrector/a del examen \"%(exam)s\"."
+
+#: apps/notifications/templates/notifications/assignment_created.txt:5
+#, python-format
+msgid "%(cnt)s instance is awaiting your grading."
+msgid_plural "%(cnt)s instances are awaiting your grading."
+msgstr[0] "%(cnt)s instancia está pendiente de corrección."
+msgstr[1] "%(cnt)s instancias están pendientes de corrección."
+
+#: apps/notifications/templates/notifications/assignment_created.txt:8
+msgid "Sign in to SCDEE to start grading."
+msgstr "Inicie sesión en SCDEE para empezar a corregir."
+
+#: apps/notifications/templates/notifications/assignment_created.txt:10 ...
+msgid "Best regards"
+msgstr "Un saludo"
+
+#: apps/notifications/templates/notifications/assignment_created_subject.txt:1
+#, python-format
+msgid "SCDEE — You have been assigned grading for: %(exam)s"
+msgstr "SCDEE — Le han asignado corrección de: %(exam)s"
+
+#: apps/notifications/templates/notifications/auto_deletion_reminder.txt:3
+#, python-format
+msgid "In %(cnt)s day SCDEE will run an automatic deletion of archived course data older than the configured retention period."
+msgid_plural "In %(cnt)s days SCDEE will run an automatic deletion of archived course data older than the configured retention period."
+msgstr[0] "En %(cnt)s día SCDEE ejecutará un borrado automático de datos archivados de cursos anteriores al periodo de retención configurado."
+msgstr[1] "En %(cnt)s días SCDEE ejecutará un borrado automático de datos archivados de cursos anteriores al periodo de retención configurado."
+
+#: apps/notifications/templates/notifications/auto_deletion_reminder.txt:5
+#, python-format
+msgid "%(cnt)s exam will be permanently removed, along with its instances and pages."
+msgid_plural "%(cnt)s exams will be permanently removed, along with their instances and pages."
+msgstr[0] "Se eliminará permanentemente %(cnt)s examen, junto con sus instancias y páginas."
+msgstr[1] "Se eliminarán permanentemente %(cnt)s exámenes, junto con sus instancias y páginas."
+
+#: apps/notifications/templates/notifications/auto_deletion_reminder.txt:8
+msgid "Audit log entries are preserved."
+msgstr "Los registros de auditoría se conservan."
+
+#: apps/notifications/templates/notifications/auto_deletion_reminder.txt:9
+msgid "Sign in to SCDEE if you wish to export data before the deletion runs."
+msgstr "Inicie sesión en SCDEE si desea exportar los datos antes de que se ejecute el borrado."
+
+#: apps/notifications/templates/notifications/auto_deletion_reminder_subject.txt:1
+msgid "SCDEE — Upcoming automatic deletion of archived data"
+msgstr "SCDEE — Próximo borrado automático de datos archivados"
+
+#: apps/notifications/templates/notifications/course_transition.txt:3
+#, python-format
+msgid "The transition from course %(old)s to %(new)s has been completed."
+msgstr "La transición del curso %(old)s al %(new)s ha finalizado."
+
+#: apps/notifications/templates/notifications/course_transition_subject.txt:1
+msgid "SCDEE — Course transition completed"
+msgstr "SCDEE — Transición de curso finalizada"
+
+#: apps/notifications/templates/notifications/grades_published.txt:3
+#, python-format
+msgid "The grades for the exam \"%(exam)s\" have been published."
+msgstr "Las notas del examen \"%(exam)s\" han sido publicadas."
+
+#: apps/notifications/templates/notifications/grades_published.txt:5 ...
+msgid "You can consult your grade by signing in to SCDEE."
+msgstr "Puede consultar su nota iniciando sesión en SCDEE."
+
+#: apps/notifications/templates/notifications/grades_published_subject.txt:1
+#, python-format
+msgid "SCDEE — Grades published: %(exam)s"
+msgstr "SCDEE — Notas publicadas: %(exam)s"
+
+#: apps/notifications/templates/notifications/ingestion_incident.txt:3
+#, python-format
+msgid "One or more incidents have been detected during page ingestion for the exam \"%(exam)s\":"
+msgstr "Se han detectado una o más incidencias durante la ingesta de páginas para el examen \"%(exam)s\":"
+
+#: apps/notifications/templates/notifications/ingestion_incident.txt:6
+#, python-format
+msgid "%(cnt)s orphan page"
+msgid_plural "%(cnt)s orphan pages"
+msgstr[0] "%(cnt)s página huérfana"
+msgstr[1] "%(cnt)s páginas huérfanas"
+
+#: apps/notifications/templates/notifications/ingestion_incident.txt:7
+#, python-format
+msgid "%(cnt)s missing page"
+msgid_plural "%(cnt)s missing pages"
+msgstr[0] "%(cnt)s página faltante"
+msgstr[1] "%(cnt)s páginas faltantes"
+
+#: apps/notifications/templates/notifications/ingestion_incident.txt:8
+#, python-format
+msgid "%(cnt)s unreadable QR"
+msgid_plural "%(cnt)s unreadable QR codes"
+msgstr[0] "%(cnt)s QR ilegible"
+msgstr[1] "%(cnt)s códigos QR ilegibles"
+
+#: apps/notifications/templates/notifications/ingestion_incident.txt:10
+msgid "Sign in to SCDEE to inspect the incidents panel and resolve them."
+msgstr "Inicie sesión en SCDEE para inspeccionar el panel de incidencias y resolverlas."
+
+#: apps/notifications/templates/notifications/ingestion_incident_subject.txt:1
+#, python-format
+msgid "SCDEE — Ingestion incident: %(exam)s"
+msgstr "SCDEE — Incidencia de ingesta: %(exam)s"
+
+#: apps/notifications/templates/notifications/password_reset.html:5 ...
+msgid "Your SCDEE password has been reset by a manager."
+msgstr "Su contraseña de SCDEE ha sido restablecida por un gestor."
+
+#: apps/notifications/templates/notifications/password_reset.html:6
+#, python-format
+msgid "Your new password is: <code>%(pwd)s</code>"
+msgstr "Su nueva contraseña es: <code>%(pwd)s</code>"
+
+#: apps/notifications/templates/notifications/password_reset.html:7 ...
+msgid "We recommend that you change it on first login."
+msgstr "Le recomendamos que la cambie en el primer inicio de sesión."
+
+#: apps/notifications/templates/notifications/password_reset.txt:5
+#, python-format
+msgid "Your new password is: %(pwd)s"
+msgstr "Su nueva contraseña es: %(pwd)s"
+
+#: apps/notifications/templates/notifications/password_reset_subject.txt:1
+msgid "SCDEE — Your password has been reset"
+msgstr "SCDEE — Su contraseña ha sido restablecida"
+
+#: apps/notifications/templates/notifications/review_opened.txt:3
+#, python-format
+msgid "The review window for the exam \"%(exam)s\" is now open."
+msgstr "El plazo de revisión del examen \"%(exam)s\" ya está abierto."
+
+#: apps/notifications/templates/notifications/review_opened.txt:5
+msgid "You can consult your corrected exam and submit review requests until the window closes."
+msgstr "Puede consultar su examen corregido y enviar solicitudes de revisión hasta que se cierre el plazo."
+
+#: apps/notifications/templates/notifications/review_opened_subject.txt:1
+#, python-format
+msgid "SCDEE — Review opened: %(exam)s"
+msgstr "SCDEE — Revisión abierta: %(exam)s"
+
+#: apps/notifications/templates/notifications/review_requests_grouped.txt:3
+#, python-format
+msgid "The review window has closed for \"%(exam)s\". You have %(cnt)s review request to handle."
+msgid_plural "The review window has closed for \"%(exam)s\". You have %(cnt)s review requests to handle."
+msgstr[0] "El plazo de revisión ha cerrado para \"%(exam)s\". Tiene %(cnt)s solicitud de revisión pendiente."
+msgstr[1] "El plazo de revisión ha cerrado para \"%(exam)s\". Tiene %(cnt)s solicitudes de revisión pendientes."
+
+#: apps/notifications/templates/notifications/review_requests_grouped.txt:5
+msgid "Sign in to SCDEE to review and resolve them."
+msgstr "Inicie sesión en SCDEE para revisarlas y resolverlas."
+
+#: apps/notifications/templates/notifications/review_requests_grouped_subject.txt:1
+#, python-format
+msgid "SCDEE — Review requests pending: %(exam)s"
+msgstr "SCDEE — Solicitudes de revisión pendientes: %(exam)s"
+
+#: apps/notifications/templates/notifications/review_result.txt:3
+#, python-format
+msgid "The review for the exam \"%(exam)s\" has concluded."
+msgstr "La revisión del examen \"%(exam)s\" ha finalizado."
+
+#: apps/notifications/templates/notifications/review_result.txt:5
+#, python-format
+msgid "Your final grade is: %(score)s."
+msgstr "Su nota final es: %(score)s."
+
+#: apps/notifications/templates/notifications/review_result.txt:8
+msgid "You can review the details by signing in to SCDEE."
+msgstr "Puede revisar los detalles iniciando sesión en SCDEE."
+
+#: apps/notifications/templates/notifications/review_result_subject.txt:1
+#, python-format
+msgid "SCDEE — Review result: %(exam)s"
+msgstr "SCDEE — Resultado de la revisión: %(exam)s"
+
+#: apps/notifications/templates/notifications/welcome.html:5
+msgid "Your account on the <strong>Digital Exam Correction System (SCDEE)</strong> has been created."
+msgstr "Su cuenta en el <strong>Sistema Digital de Corrección de Exámenes (SCDEE)</strong> ha sido creada."
+
+#: apps/notifications/templates/notifications/welcome.html:7
+msgid "Login credentials"
+msgstr "Credenciales de acceso"
+
+#: apps/notifications/templates/notifications/welcome.html:8 ...
+msgid "Email"
+msgstr "Correo electrónico"
+
+#: apps/notifications/templates/notifications/welcome.html:9 ...
+msgid "Password"
+msgstr "Contraseña"
+
+#: apps/notifications/templates/notifications/welcome.txt:3
+msgid "Your account on the Digital Exam Correction System (SCDEE) has been created."
+msgstr "Su cuenta en el Sistema Digital de Corrección de Exámenes (SCDEE) ha sido creada."
+
+#: apps/notifications/templates/notifications/welcome.html:11
+#: apps/notifications/templates/notifications/welcome.txt:9
+msgid "We recommend that you change your password on first login."
+msgstr "Le recomendamos que la cambio en su primer inicio de sesión"
+
+#: apps/notifications/templates/notifications/welcome.txt:5
+msgid "Login credentials:"
+msgstr "Credenciales de acceso:"
+
+#: apps/notifications/templates/notifications/welcome_subject.txt:1
+msgid "SCDEE — Welcome, your account has been created"
+msgstr "SCDEE — Bienvenido, su cuenta ha sido creada"

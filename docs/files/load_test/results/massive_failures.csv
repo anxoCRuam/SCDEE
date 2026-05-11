@@ -1,0 +1,11 @@
+Method,Name,Error,Occurrences
+GET,student/notifications,HTTPError('500 Server Error: Internal Server Error for url: student/notifications'),335
+POST,auth/login,HTTPError('500 Server Error: Internal Server Error for url: auth/login'),20
+GET,student/instance/download,CatchResponseError('HTTP 500'),321
+GET,grader/instance/detail,HTTPError('500 Server Error: Internal Server Error for url: grader/instance/detail'),122
+POST,manager/publish,HTTPError('500 Server Error: Internal Server Error for url: manager/publish'),4
+POST,student/review-request,HTTPError('500 Server Error: Internal Server Error for url: student/review-request'),25
+GET,student/instance/detail,HTTPError('500 Server Error: Internal Server Error for url: student/instance/detail'),341
+GET,grader/my-tasks,HTTPError('500 Server Error: Internal Server Error for url: grader/my-tasks'),35
+POST,grader/annotations/create,HTTPError('500 Server Error: Internal Server Error for url: grader/annotations/create'),197
+GET,student/profile,HTTPError('500 Server Error: Internal Server Error for url: student/profile'),525

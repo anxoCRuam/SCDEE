@@ -1,0 +1,252 @@
+% =============================================================================
+%  Bibliografía — formato BibTeX, estilo IEEE (ieeetr)
+% =============================================================================
+%  Convenciones:
+%    - Una entrada por trabajo citado en el cuerpo (no añadir entradas no
+%      referenciadas; la normativa lo prohíbe).
+%    - Cada entrada lleva un comentario indicando dónde se cita en la memoria
+%      y qué afirmación sustenta. Para una ficha completa con páginas/citas
+%      textuales que respaldan cada afirmación, ver bibliography/notes.md.
+%    - URLs accedidas en mayo de 2026 (knowledge cutoff de la elaboración).
+% =============================================================================
+
+
+% --- Capítulo 2 — Estado del arte ---------------------------------------------
+
+% Citado en: cap. 2 §2.1 (subsección Crowdmark).
+% Sustenta: mecánica del flujo presencial de Crowdmark (QR + zona OCR),
+%           pre-emparejamiento alternativo.
+@misc{crowdmark,
+  author       = {{Crowdmark Inc.}},
+  title        = {Crowdmark Help: Using Automated Matching},
+  howpublished = {\url{https://www.crowdmark.com/help/using-automated-matching/}},
+  year         = {2025},
+  note         = {Consultado en mayo de 2026}
+}
+
+% Citado en: cap. 2 §2.1 (subsección Gradescope).
+% Sustenta: origen académico de Gradescope (UC Berkeley, 2014); adquisición
+%           por Turnitin en 2018; mecánica de agrupamiento por similitud.
+@inproceedings{singh2017gradescope,
+  author    = {Singh, Arjun and Karayev, Sergey and Gutowski, Kevin and
+               Abbeel, Pieter},
+  title     = {Gradescope: A Fast, Flexible, and Fair System for Scalable
+               Assessment of Handwritten Work},
+  booktitle = {Proceedings of the Fourth (2017) ACM Conference on
+               Learning @ Scale (L@S)},
+  year      = {2017},
+  pages     = {81--88},
+  publisher = {Association for Computing Machinery},
+  doi       = {10.1145/3051457.3051466}
+}
+
+% Citado en: cap. 2 §2.1 (subsección Akindi).
+% Sustenta: que Akindi se enfoca exclusivamente a bubble sheets como
+%           sustituto de Scantron.
+@misc{akindi,
+  author       = {{Akindi Inc.}},
+  title        = {Akindi: Paper \& Online Test Scoring (Scantron Alternative)},
+  howpublished = {\url{https://akindi.com/}},
+  note         = {Consultado en mayo de 2026}
+}
+
+% Citado en: cap. 2 §2.1 (subsección de corrección asistida por LLMs).
+% Sustenta: existencia de Pensieve Grader; despliegue en >20 instituciones;
+%           planteamiento human-in-the-loop.
+@misc{yang2025pensieve,
+  author        = {Yang, Yoonseok and Kim, Minjune and
+                   Rondinelli, Marlon and Shao, Keren},
+  title         = {Pensieve Grader: An AI-Powered, Ready-to-Use Platform for
+                   Effortless Handwritten {STEM} Grading},
+  year          = {2025},
+  eprint        = {2507.01431},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  note          = {arXiv preprint}
+}
+
+% Citado en: cap. 2 §2.1 (subsección de corrección asistida por LLMs).
+% Sustenta: existencia de la propuesta VEHME aplicando vision-language models
+%           a evaluación de expresiones matemáticas manuscritas.
+% TODO bibliography/references.bib: verificar la lista de autores de VEHME en
+%                                   arXiv:2510.22798 (no quedó en mis búsquedas).
+@misc{nguyen2025vehme,
+  title         = {{VEHME}: A Vision-Language Model for Evaluating Handwritten
+                   Mathematics Expressions},
+  year          = {2025},
+  eprint        = {2510.22798},
+  archivePrefix = {arXiv},
+  note          = {arXiv preprint; verificar lista de autores antes de la
+                   defensa}
+}
+
+% Citado en: cap. 2 §2.1 (subsección de corrección asistida por LLMs).
+% Sustenta: existencia del enfoque LLM multimodal aplicado a exámenes de
+%           ingeniería; postura human-in-the-loop.
+@misc{pers2026grading,
+  author        = {Per{\v{s}}, Janez and Muhovi{\v{c}}, Jon and
+                   Ko{\v{s}}ir, Andrej and Murovec, Bo{\v{s}}tjan},
+  title         = {Grading Handwritten Engineering Exams with Multimodal
+                   Large Language Models},
+  institution   = {University of Ljubljana, Faculty of Electrical Engineering},
+  year          = {2026},
+  eprint        = {2601.00730},
+  archivePrefix = {arXiv},
+  note          = {arXiv preprint}
+}
+
+% Citado en: cap. 2 §2.1 (Posicionamiento del SCDEE).
+% Sustenta: existencia de SIGMA Academic, su consorcio universitario y sus
+%           módulos de gestión académica.
+@misc{sigmaaie,
+  author       = {{SIGMA Gestión Universitaria A.I.E.}},
+  title        = {{SIGMA} Academic},
+  howpublished = {\url{https://www.sigmaaie.org/es/soluciones/sigma-academic}},
+  note         = {Consultado en mayo de 2026}
+}
+
+% Citado en: cap. 2 §2.1 (Posicionamiento del SCDEE).
+% Sustenta: que la UAM utiliza SIGMA como sistema de gestión académica.
+@misc{uamsigma,
+  author       = {{Universidad Autónoma de Madrid}},
+  title        = {Gestión académica: {Sigma}},
+  howpublished = {\url{https://www.uam.es/uam/tecnologias-informacion/servicios/sigma}},
+  note         = {Consultado en mayo de 2026}
+}
+
+
+% --- Capítulo 2 §2.2 — Tecnologías base ---------------------------------------
+
+% Citado en: cap. 2 §2.2 (Django y DRF).
+% Sustenta: definición de Django como marco web Python; sus capacidades de
+%           serie (ORM, migraciones, autenticación, internacionalización, admin).
+@misc{django,
+  author       = {{Django Software Foundation}},
+  title        = {Django Documentation},
+  howpublished = {\url{https://docs.djangoproject.com/}},
+  note         = {Consultado en mayo de 2026}
+}
+
+% Citado en: cap. 2 §2.2 (Django y DRF).
+% Sustenta: definición de DRF y sus componentes (serializadores, vistas,
+%           autenticación intercambiable, paginación, generación OpenAPI).
+@misc{drf,
+  author       = {{Encode OSS Ltd.}},
+  title        = {Django {REST} Framework},
+  howpublished = {\url{https://www.django-rest-framework.org/}},
+  note         = {Consultado en mayo de 2026}
+}
+
+% Citado en: cap. 2 §2.2 (PostgreSQL).
+% Sustenta: características técnicas de PostgreSQL (SQL estándar, ACID,
+%           JSONB, índices funcionales, extensiones, licencia tipo BSD).
+@misc{postgresql,
+  author       = {{The PostgreSQL Global Development Group}},
+  title        = {PostgreSQL Documentation},
+  howpublished = {\url{https://www.postgresql.org/docs/}},
+  note         = {Consultado en mayo de 2026}
+}
+
+% Citado en: cap. 2 §2.2 (Celery y Redis).
+% Sustenta: arquitectura de Celery (broker, workers, result backend) y su
+%           papel como cola distribuida de tareas.
+@misc{celery,
+  author       = {{Celery Project}},
+  title        = {Celery — Distributed Task Queue},
+  howpublished = {\url{https://docs.celeryq.dev/}},
+  note         = {Consultado en mayo de 2026}
+}
+
+% Citado en: cap. 2 §2.2 (Celery y Redis).
+% Sustenta: Redis como base de datos en memoria con estructuras de datos
+%           y operaciones atómicas; uso como caché, broker y blacklist.
+@misc{redis,
+  author       = {{Redis Ltd.}},
+  title        = {Redis Documentation},
+  howpublished = {\url{https://redis.io/docs/}},
+  note         = {Consultado en mayo de 2026}
+}
+
+% Citado en: cap. 2 §2.2 (MinIO).
+% Sustenta: definición de MinIO como servidor de almacenamiento de objetos
+%           compatible con la API S3, distribuido bajo licencia AGPLv3.
+@misc{minio,
+  author       = {{MinIO, Inc.}},
+  title        = {MinIO Documentation},
+  howpublished = {\url{https://min.io/docs/}},
+  note         = {Consultado en mayo de 2026}
+}
+
+% Citado en: cap. 2 §2.2 (Tesseract y EasyOCR).
+% Sustenta: descripción técnica de EasyOCR (CRAFT detector + CRNN recognizer);
+%           soporte nativo de 80+ idiomas incluido español sin paquetes extra.
+@misc{easyocr,
+  author       = {{Jaided AI}},
+  title        = {{EasyOCR}: Ready-to-use {OCR} with 80+ Supported Languages},
+  howpublished = {\url{https://github.com/JaidedAI/EasyOCR}},
+  note         = {Consultado en mayo de 2026}
+}
+
+% Citado en: cap. 2 §2.2 (Tesseract y EasyOCR).
+% Sustenta: cita canónica del motor Tesseract; descripción del sistema y de
+%           sus componentes principales (line finding, classification, etc.).
+@inproceedings{smith2007tesseract,
+  author    = {Smith, Ray},
+  title     = {An Overview of the {Tesseract} {OCR} Engine},
+  booktitle = {Proceedings of the Ninth International Conference on
+               Document Analysis and Recognition ({ICDAR} 2007)},
+  year      = {2007},
+  pages     = {629--633},
+  volume    = {2},
+  publisher = {{IEEE} Computer Society},
+  doi       = {10.1109/ICDAR.2007.4376991}
+}
+
+
+% --- Capítulo 2 §2.3 — Conceptos transversales --------------------------------
+
+% Citado en: cap. 2 §2.3.1 (Patrones multi-tenant).
+% Sustenta: existencia de una literatura formal sobre estrategias de
+%           aislamiento multi-tenant (instancia separada, BD separada,
+%           esquema separado, fila compartida con discriminador).
+% Capítulo de referencia: cap. 3 «Multi-Tenant Storage Strategies».
+@book{golding2024multitenant,
+  author    = {Golding, Tod},
+  title     = {Building Multi-Tenant {SaaS} Architectures: Principles,
+               Practices, and Patterns Using {AWS}},
+  publisher = {O'Reilly Media},
+  year      = {2024},
+  isbn      = {9781098140649},
+  pages     = {484}
+}
+
+% Citado en: cap. 2 §2.3.2 (Arquitecturas basadas en plugins).
+% Sustenta: respaldo teórico del patrón Strategy aplicado a la
+%           arquitectura plugin-based del SCDEE.
+% Capítulo de referencia: cap. 5 «Behavioral Patterns», sección Strategy.
+@book{gof1994designpatterns,
+  author    = {Gamma, Erich and Helm, Richard and Johnson, Ralph and
+               Vlissides, John},
+  title     = {Design Patterns: Elements of Reusable Object-Oriented Software},
+  publisher = {Addison-Wesley Professional},
+  year      = {1994},
+  isbn      = {9780201633610},
+  series    = {Addison-Wesley Professional Computing Series}
+}
+
+
+% --- Capítulo 4 — Diseño ------------------------------------------------------
+
+% Citado en: cap. 4 §4.1.1 (mención breve a la capa Service Layer);
+%            cap. 4 §4.3 (desarrollo de la arquitectura por capas).
+% Sustenta: el patrón Service Layer como respaldo teórico de la organización
+%           del código del backend (models / serializers / views / services).
+% Capítulo de referencia: cap. 9 «Domain Logic Patterns», sección Service Layer.
+@book{fowler2002,
+  author    = {Fowler, Martin},
+  title     = {Patterns of Enterprise Application Architecture},
+  publisher = {Addison-Wesley Professional},
+  year      = {2002},
+  isbn      = {9780321127426},
+  series    = {Addison-Wesley Signature Series}
+}

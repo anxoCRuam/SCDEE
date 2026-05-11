@@ -1,0 +1,15 @@
+graph LR
+    A[Frontend SPA] --> B[API Django]
+    B --> C[(PostgreSQL)]
+    B --> D[Redis]
+    B --> E[MinIO]
+    B --> F[Celery Worker]
+    F --> D
+    F --> E
+    F --> G[SMTP / Mailpit]
+    K[Celery Beat] --> C
+    K[Celery Beat] --> D
+
+    H[Cliente SFTP] --> I[Servidor SFTP]
+    I -.->|"subida de archivos"| J[(Ingestion Inbox / Volumen)]
+    J -.-> B

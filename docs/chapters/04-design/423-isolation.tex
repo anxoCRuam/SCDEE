@@ -1,0 +1,81 @@
+El aislamiento entre organizaciones se garantiza mediante un mecanismo
+de filtrado automático basado en dos \textit{managers} de Django:
+\texttt{TenantManager} (filtrado, asignado por defecto al atributo
+\texttt{objects}) y \texttt{UnfilteredManager} (sin filtro, asignado al
+atributo \texttt{unfiltered}). Este mecanismo asegura que la
+\textit{query} estándar \texttt{MyModel.objects.all()} devuelve
+exclusivamente registros de la organización activa, sin que el código
+de las vistas o los servicios deba aplicar el filtro manualmente.
+
+El contexto del \dfn{tenant} se almacena en una variable de hilo y
+\texttt{TenantManager} lo consulta perezosamente al evaluar cada
+\textit{queryset}. El \cref{code:tenant-managers} muestra la
+implementación, casi trivial pero estructuralmente decisiva.
+
+\PythonCode[code:tenant-managers]%
+           {\texttt{TenantManager} y \texttt{UnfilteredManager}}%
+           {Implementación de los \textit{managers} de aislamiento
+            multi-tenant.}%
+           {managers.py}{20}{53}{1}
+
+El establecimiento y la limpieza del contexto siguen un flujo que abarca
+la autenticación, la ejecución de la vista y el final de la respuesta
+(\cref{fig:auth-tenant-flow}):
+
+\begin{enumerate}
+  \item \textbf{Llegada de la petición.} El servidor Django ejecuta la
+  cadena de \textit{middleware}. En este punto la autenticación de
+  \acs{drf} aún no se ha invocado y \texttt{request.user} es
+  \texttt{AnonymousUser}; el contexto del \dfn{tenant} permanece vacío.
+
+  \item \textbf{Autenticación.} \acs{drf} invoca
+  \texttt{JWTAuthentication.authenticate()}, que extrae el \textit{token}
+  Bearer, delega su validación al \dfn{plugin} de autenticación activo,
+  carga el usuario con \texttt{User.unfiltered.get(...)} (sin filtro,
+  dado que aún no hay contexto) y, si el usuario no es
+  superadministrador, establece el contexto de la organización mediante
+  \texttt{set\_current\_organization\_id}.
+
+  \item \textbf{Ejecución de la vista.} Cualquier \textit{query}
+  realizada por la vista o por los servicios subyacentes a través de
+  \texttt{MyModel.objects} queda automáticamente acotada a la
+  organización del usuario autenticado. Las vistas no necesitan aplicar
+  el filtro de manera explícita.
+
+  \item \textbf{Limpieza.} Al finalizar la respuesta,
+  \texttt{ClearTenantContextMiddleware} invoca
+  \texttt{clear\_current\_organization\_id} en un bloque
+  \texttt{finally}, lo que previene la fuga del contexto entre
+  peticiones cuando el servidor reutiliza el mismo hilo de su
+  \textit{pool}.
+\end{enumerate}
+
+\begin{figure}[Flujo de autenticación y contexto multi-tenant]%
+              {fig:auth-tenant-flow}%
+              {Flujo de autenticación \acs{jwt} y establecimiento del
+               contexto del \dfn{tenant}.}
+  \image{}{}{plantuml/auth_secuence}
+\end{figure}
+
+Este diseño es deliberadamente defensivo: al asignar
+\texttt{TenantManager} como \textit{manager} por defecto, todo
+\texttt{MyModel.objects.filter(...)} queda filtrado por organización
+sin que el desarrollador deba recordar añadir el filtro manualmente. El
+olvido de un \texttt{filter(organization=...)} en una \textit{query}
+manual constituiría una fuga de datos entre organizaciones; con esta
+arquitectura ese olvido es estructuralmente imposible. El
+\textit{manager} \texttt{unfiltered} se reserva para situaciones como
+las tareas asíncronas que no disponen de contexto de petición y las
+\textit{queries} inter-organización, actualmente solo accesibles al
+superadministrador.
+
+El compromiso de esta estrategia se reconoció ya en
+\cref{SS:SOTA-MULTITENANT}: el aislamiento es lógico (a nivel de
+\textit{queryset} filtrado por código) y no físico (segregación de
+esquemas o bases de datos por organización). Esta decisión prioriza la
+simplicidad operativa y la eficiencia de recursos sobre las garantías
+de aislamiento más fuertes, acordes con un primer escenario de
+despliegue donde el número de organizaciones inquilinas es reducido.
+La arquitectura admite la migración a un modelo de aislamiento más
+segregado (esquemas PostgreSQL separados por organización) sin cambios
+en el código de negocio, como línea de trabajo futuro.

@@ -1,0 +1,22 @@
+Tras clonar el repositorio, se copia el fichero de variables de ejemplo
+y se generan las claves criptográficas:
+
+\begin{verbatim}
+git clone <url-del-repositorio> scdee
+cd scdee
+cp backend/.env.example backend/.env
+make keygen
+\end{verbatim}
+
+El comando \texttt{make keygen} imprime por consola los valores de
+\texttt{DJANGO\_SECRET\_KEY} y \texttt{ENCRYPTION\_MASTER\_KEY} (clave
+maestra \acs{aes}-256-\acs{gcm} para el cifrado del \acs{dni}). Deben
+copiarse al fichero \texttt{backend/.env} sustituyendo los marcadores
+de posición.
+
+Las variables del fichero \texttt{.env} se agrupan en seis bloques:
+Django (\texttt{DJANGO\_SECRET\_KEY}, \texttt{DJANGO\_DEBUG},
+\texttt{DJANGO\_ALLOWED\_HOSTS}), base de datos (\texttt{DB\_*}), Redis
+y Celery (\texttt{REDIS\_URL}, \texttt{CELERY\_*}), MinIO
+(\texttt{MINIO\_*}), correo (\texttt{EMAIL\_*}) y cifrado
+(\texttt{ENCRYPTION\_MASTER\_KEY}).
