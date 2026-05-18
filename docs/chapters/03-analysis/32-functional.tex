@@ -23,7 +23,7 @@ sub-requisito se incluye en \cref{SEC:REQ-FUNCTIONAL}.
     6  & Exámenes y modelos                             & 16  \\
     7  & Instancias de examen y páginas                 & 15  \\
     8  & Reglas de corrección                           & 5   \\
-    9  & Ingesta de documentos y reconocimiento         & 13  \\
+    9  & Ingesta de documentos y reconocimiento         & 11  \\
     10 & Anotaciones                                    & 7   \\
     11 & Calificaciones                                 & 6   \\
     12 & Revisión de exámenes                           & 8   \\
@@ -32,7 +32,7 @@ sub-requisito se incluye en \cref{SEC:REQ-FUNCTIONAL}.
     15 & Configuración y mantenimiento                  & 5   \\
     16 & Seguridad y auditoría                          & 6   \\
     \hline
-       & \textbf{Total sub-requisitos funcionales}      & \textbf{133} \\
+       & \textbf{Total sub-requisitos funcionales}      & \textbf{131} \\
     \hline
   \end{tabular}
 \end{table}
@@ -582,24 +582,11 @@ sub-requisito se incluye en \cref{SEC:REQ-FUNCTIONAL}.
     global por organización o por petición, sin afectar a los reconocedores
     fijos de \acs{qr} y \texttt{CHECKBOX}.
 
-    \item \textbf{Registro de \dfnpl{plugin} de reconocedores.}
-    \label{rf:ingest:plugin-registry}
-    El sistema debe permitir registrar varios motores \acs{ocr} como
-    \dfnpl{plugin} intercambiables que implementen la interfaz
-    \texttt{BaseOCREngine}.
-
     \item \textbf{Ensamblado de instancias a partir de páginas.}
     \label{rf:ingest:assembly}
     El sistema debe agrupar las páginas identificadas por \acs{qr} bajo la
     instancia correspondiente, transitándola a \texttt{RECEIVED} cuando
     todas las páginas esperadas hayan llegado.
-
-    \item \textbf{\textit{Fallback} de proximidad temporal.}
-    \label{rf:ingest:fallback}
-    El sistema debe asociar temporalmente las páginas sin \acs{qr} legible
-    a la instancia más reciente del mismo origen dentro de un umbral
-    configurable, marcándolas con incidencia
-    \texttt{ORPHAN\_PAGE}.
 
     \item \textbf{\acs{ocr} sobre anotación de calificación.}
     \label{rf:ingest:ocr-grade}

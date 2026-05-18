@@ -15,8 +15,8 @@ References: RF-9.2, RF-9.8, RF-9.9.
 
 from __future__ import annotations
 
+import base64
 import logging
-import uuid
 
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -27,6 +27,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.models.permissions import IsOrgManager
 from apps.core.openapi.errors import ErrorCode, error_response
+from apps.ingestion.models.ingestion import IngestionBatch
 from apps.ingestion.serializers.ingestion import (
     MANUAL_INGEST_RESPONSE_EXAMPLE,
     OCR_ENGINE_LIST_EXAMPLE,
@@ -119,36 +120,30 @@ class ManualIngestView(APIView):
 
         file_data = request.FILES["file"].read()
         filename = request.FILES["file"].name
+        file_data_b64 = base64.b64encode(file_data).decode("ascii")
 
-        from apps.ingestion.services.ingestion_service import process_ingest_file
+        # ── Crear IngestionBatch ──────────────────────────────
+        batch = IngestionBatch.objects.create(
+            source="manual",
+            total_pages=1,  # la tarea lo corregirá si es PDF
+        )
 
-        try:
-            result = process_ingest_file(
-                file_data=file_data,
-                filename=filename,
-                organization_id=str(request.user.organization_id),
-            )
-        except ValueError as exc:
-            return Response(
-                {"error_code": "FILE_TOO_LARGE", "detail": str(exc)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except Exception:
-            logger.exception("Manual ingestion failed for %s", filename)
-            return Response(
-                {"error_code": "INGESTION_FAILED"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        from apps.ingestion.tasks import ingest_page_task
 
-        # For the response, generate a batch identifier.
-        batch_id = str(uuid.uuid4())
+        result = ingest_page_task.delay(
+            file_data_b64,
+            filename,
+            organization_id=str(request.user.organization_id),
+            batch_id=str(batch.id),
+        )
 
-        response_data = {
-            "task_id": batch_id,
-            "filename": filename,
-            "total_pages": result["total_pages"],
-            "pages": result["pages"],
-            "status": "queued",
-        }
-
-        return Response(response_data, status=status.HTTP_202_ACCEPTED)
+        return Response(
+            {
+                "task_id": result.id,
+                "filename": filename,
+                "batch_id": str(batch.id),
+                "total_pages": 1,
+                "status": "queued",
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )

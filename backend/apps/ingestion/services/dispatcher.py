@@ -80,6 +80,7 @@ def recognize_page(page: ExamPage) -> dict:
             results["issue"] = "EXTRA_PAGE"
 
         # Update page metadata.
+        results["zones"] = zone_results
         page.status = PageStatus.RECOGNIZED
         page.recognized_at = datetime.now(tz=UTC)
 
@@ -89,12 +90,16 @@ def recognize_page(page: ExamPage) -> dict:
         page.status = PageStatus.PENDING_RECOGNITION
         results["qr_payload"] = None
 
+    page.recognized_data = results
     page.save()
 
     # Step 3: Trigger assembly (handles both QR success and fallback).
-    from apps.ingestion.services.assembler import assemble_page
+    # from apps.ingestion.services.assembler import assemble_page
+    # assemble_page(page, results)
 
-    assemble_page(page, results)
+    from apps.ingestion.services.assembler import schedule_assembly
+
+    schedule_assembly(page)
 
     return results
 
@@ -154,7 +159,7 @@ def _run_zone_recognizers(image_bytes: bytes, profile: PageProfile) -> list[dict
         else:
             continue
 
-        result = recognizer.recognize(cropped)
+        result = recognizer.recognize(cropped, attribute=zone.attribute)
         results.append(
             {
                 "zone_id": str(zone.pk),

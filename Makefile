@@ -219,6 +219,11 @@ load-all: load-seed load-ingestion load-correction load-spike ## Todas las fases
 	@echo "=== CICLO COMPLETO TERMINADO ==="
 	@echo "Gráficas en $(GRAPHS)/phase1, phase2, phase3"
 
+quality-tests:
+	$(API_EXEC) pytest tests/quality/test_ocr_raw.py -v -s
+	$(API_EXEC) tests/quality/evaluate_matching.py
+	$(API_EXEC) pytest tests/quality/test_ocr_matching.py -v -s
+
 # -- Keygen ----------------------------------------------------
 keygen: ## Generate DJANGO_SECRET_KEY & ENCRYPTION_MASTER_KEY (run inside container)
 	@echo "# ===================================="

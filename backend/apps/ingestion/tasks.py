@@ -3,7 +3,7 @@ Celery tasks for the ingestion and recognition pipeline.
 
 Tasks:
 - recognize_page_task: Process a single page through the recognition pipeline.
-- ingest_page_task: Receive a new page, normalize to PNG, store in MinIO,
+- ingest_page_task: Receive a new page or PDF, normalize to PNG, store in MinIO,
   create ExamPage(s), enqueue recognition.
 - detect_missing_pages: Periodic task to detect stalled ASSEMBLING instances.
 
@@ -15,6 +15,7 @@ References: RF-9.2, RF-9.4, RF-7.6
 from __future__ import annotations
 
 import base64
+import io
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -31,15 +32,7 @@ logger = logging.getLogger(__name__)
     default_retry_delay=30,
 )
 def recognize_page_task(self, page_id: str) -> dict:
-    """Run the recognition dispatcher on a single ExamPage.
-
-    This is the main recognition task, enqueued after a page is ingested
-    and stored in MinIO. Idempotent: ``SELECT ... FOR UPDATE`` claims the
-    row before processing and the status check (``PENDING_RECOGNITION``)
-    causes a no-op if another worker already processed this page —
-    important because Celery retries and re-deliveries can cause the
-    same task to fire more than once.
-    """
+    """Run the recognition dispatcher on a single ExamPage."""
     from django.db import transaction
 
     from apps.instances.models.instances import ExamPage, PageStatus
@@ -81,32 +74,137 @@ def ingest_page_task(
     file_data_b64: str,
     filename: str,
     organization_id: str | None = None,
+    batch_id: str | None = None,
 ) -> dict:
-    """Thin Celery wrapper around the shared ingestion logic."""
+    """Ingest a new page or PDF: normalize to PNG pages, store in MinIO,
+    create one ExamPage per page, and enqueue recognition for each.
+
+    If ``batch_id`` is provided, all created ExamPages are linked to that
+    IngestionBatch. Otherwise a new batch is created automatically.
+    """
+    from apps.exams.services.storage import upload_to_minio
+    from apps.ingestion.models.ingestion import IngestionBatch
+    from apps.instances.models.instances import ExamPage, PageStatus
+
     try:
         file_data = base64.b64decode(file_data_b64)
     except Exception:
         return {"error": "INVALID_DATA"}
 
-    from apps.ingestion.services.ingestion_service import process_ingest_file
+    max_size_mb = getattr(settings, "INGESTION_MAX_PAGE_SIZE_MB", 50)
+    if len(file_data) > max_size_mb * 1024 * 1024:
+        return {"error": "FILE_TOO_LARGE", "max_mb": max_size_mb}
 
-    try:
-        return process_ingest_file(file_data, filename, organization_id)
-    except Exception as exc:
-        logger.error("Ingestion failed for %s: %s", filename, exc)
-        raise self.retry(exc=exc) from exc
+    # ── Normalize: split PDF into pages, convert everything to PNG ──
+    normalized_pages = _normalize_to_png_pages(file_data, filename)
+
+    # ── Create or reuse IngestionBatch ───────────────────────────
+    if batch_id:
+        try:
+            batch = IngestionBatch.objects.get(pk=batch_id)
+            # Update total_pages in case we now know the exact count
+            if batch.total_pages != len(normalized_pages):
+                batch.total_pages = len(normalized_pages)
+                batch.save(update_fields=["total_pages", "updated_at"])
+        except IngestionBatch.DoesNotExist:
+            batch = IngestionBatch.objects.create(
+                source="watcher",  # default; caller can set via other means
+                total_pages=len(normalized_pages),
+            )
+            batch_id = str(batch.id)
+    else:
+        batch = IngestionBatch.objects.create(
+            source="watcher",
+            total_pages=len(normalized_pages),
+        )
+        batch_id = str(batch.id)
+
+    created_pages: list[dict] = []
+    timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")
+
+    for page_index, png_bytes in enumerate(normalized_pages):
+        if len(normalized_pages) > 1:
+            page_filename = f"{filename}_p{page_index + 1}.png"
+        else:
+            page_filename = f"{filename}.png"
+
+        storage_key = f"pending/ingestion/{timestamp}_{page_filename}"
+
+        try:
+            upload_to_minio(key=storage_key, data=png_bytes, content_type="image/png")
+        except Exception as exc:
+            logger.error("MinIO upload failed for page %d: %s", page_index, exc)
+            raise self.retry(exc=exc) from exc
+
+        page = ExamPage.objects.create(
+            instance=None,
+            page_number=0,
+            storage_ref=storage_key,
+            status=PageStatus.PENDING_RECOGNITION,
+            organization_id=organization_id,
+            batch_id=batch_id,
+        )
+
+        recognize_page_task.delay(str(page.pk))
+
+        created_pages.append(
+            {
+                "page_id": str(page.pk),
+                "storage_ref": storage_key,
+                "page_index": page_index + 1,
+                "status": "queued",
+            }
+        )
+
+    return {
+        "filename": filename,
+        "batch_id": batch_id,
+        "total_pages": len(normalized_pages),
+        "pages": created_pages,
+    }
+
+
+def _normalize_to_png_pages(file_data: bytes, filename: str) -> list[bytes]:
+    """Convert any supported input to a list of PNG page images."""
+    if file_data.startswith(b"%PDF"):
+        return _pdf_to_png_pages(file_data)
+    return [_raster_to_png(file_data)]
+
+
+def _pdf_to_png_pages(pdf_bytes: bytes) -> list[bytes]:
+    """Render each page of a PDF to a PNG at 200 DPI."""
+    from pdf2image import convert_from_bytes
+
+    images = convert_from_bytes(pdf_bytes, dpi=200)
+    result: list[bytes] = []
+    for image in images:
+        out = io.BytesIO()
+        image.save(out, format="PNG")
+        result.append(out.getvalue())
+
+    logger.info(
+        "PDF converted: %d pages → %d PNG images.",
+        len(images),
+        len(result),
+    )
+    return result
+
+
+def _raster_to_png(image_bytes: bytes) -> bytes:
+    """Ensure a raster image is in PNG format."""
+    if image_bytes[:8] == b"\x89PNG\r\n\x1a\n":
+        return image_bytes
+    from PIL import Image
+
+    image = Image.open(io.BytesIO(image_bytes))
+    out = io.BytesIO()
+    image.save(out, format="PNG")
+    return out.getvalue()
 
 
 @shared_task(queue="default")
 def detect_missing_pages() -> dict:
-    """Periodic task: flag stalled ASSEMBLING instances and notify coordinators.
-
-    Runs every few minutes. If an instance has been in ASSEMBLING for
-    longer than the configured timeout, marks it with ``MISSING_PAGE``
-    and notifies the coordinator of the affected exam (RF-7.6, RF-9.11,
-    RF-13.7). Multiple newly-marked instances of the same exam yield a
-    single grouped notification per coordinator per run.
-    """
+    """Periodic task: flag stalled ASSEMBLING instances and notify coordinators."""
     from apps.instances.models.instances import (
         ExamInstance,
         InstanceIssueType,
@@ -124,7 +222,7 @@ def detect_missing_pages() -> dict:
         issue_types__contains=[InstanceIssueType.MISSING_PAGE],
     )
 
-    affected_exams: dict[str, int] = {}  # exam_id → count
+    affected_exams: dict[str, int] = {}
     count = 0
     for instance in stalled:
         instance.add_issue(InstanceIssueType.MISSING_PAGE)
@@ -161,3 +259,11 @@ def detect_missing_pages() -> dict:
             )
 
     return {"stalled_instances": count, "exams_notified": len(affected_exams)}
+
+
+@shared_task(queue="default")
+def assemble_exam_pages(exam_id: str) -> dict:
+    """Ensambla páginas de un examen tras la ventana de espera."""
+    from apps.ingestion.services.assembler import assemble_exam
+
+    return assemble_exam(exam_id)

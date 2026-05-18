@@ -1,170 +1,159 @@
-"""
-Student matching — fuzzy matching of OCR results against convoked students.
+"""Pure assignment algorithm: lots ↔ students.
 
-Uses Levenshtein distance for name matching and OCR-error-tolerant
-comparison for DNI/NIA (handles common confusions: 0/O, 1/l/I, etc.).
+Given a set of lots (each one a group of pages from the same physical
+exam) and a roster of candidate students, returns a globally optimal
+1-to-1 assignment using the Hungarian algorithm
+(`scipy.optimize.linear_sum_assignment`).
 
-References: RF-9.7
+The 1-to-1 guarantee is what closes the loop in the matching: greedy
+"pick the best student for each lot independently" can assign the same
+student to multiple lots, with no principled way to resolve conflicts.
+The Hungarian assignment maximises the total score subject to the
+constraint that no student receives more than one lot and no lot is
+assigned to more than one student. Lots with no candidate above the
+configured threshold are returned as unassigned.
+
+No Django imports here — operates on plain dataclasses so that the
+offline evaluator (`tests/quality/evaluate_matching.py`) can reuse
+exactly the same code path that production runs.
 """
 
 from __future__ import annotations
 
-import logging
-import re
+from collections.abc import Hashable
+from dataclasses import dataclass
 
-from django.conf import settings
+import numpy as np
+from scipy.optimize import linear_sum_assignment
 
-logger = logging.getLogger(__name__)
+from apps.ingestion.services.scoring import ScoringStrategy
 
-# Minimum confidence threshold for accepting a match.
-MATCH_CONFIDENCE_THRESHOLD = getattr(settings, "INGESTION_MATCH_THRESHOLD", 0.7)
-
-# Common OCR character confusions for DNI/NIA.
-_OCR_CONFUSIONS = {
-    "0": "O",
-    "O": "0",
-    "1": "lI",
-    "l": "1I",
-    "I": "1l",
-    "5": "S",
-    "S": "5",
-    "8": "B",
-    "B": "8",
-    "6": "G",
-    "G": "6",
-}
+# ---------------------------------------------------------------------------
+# Input types
+# ---------------------------------------------------------------------------
 
 
-def match_student(
-    exam,
-    attributes: dict[str, str],
-) -> tuple | None:
-    """Match OCR attributes against convoked students.
+@dataclass(frozen=True)
+class LotCandidate:
+    """OCR'd values for one lot (group of pages from a single physical exam).
 
-    Tries matching in order of reliability:
-    1. NIA (exact-ish, most reliable).
-    2. DNI (exact-ish, with OCR tolerance).
-    3. Name (fuzzy Levenshtein).
+    Attributes:
+        key: Stable identifier for this lot (e.g. a batch UUID or a
+            synthetic "single_{page_id}" string for unbatched pages).
+            Must be hashable; the assignment result is keyed by it.
+        ocr_values: Per-attribute lists of OCR'd strings. Expected keys
+            are 'name', 'nia', 'dni'. A multi-page lot will typically
+            have one entry per page per attribute.
+    """
+
+    key: Hashable
+    ocr_values: dict[str, list[str]]
+
+
+@dataclass(frozen=True)
+class StudentCandidate:
+    """The ground-truth identifier triplet for one convoked student."""
+
+    student_id: Hashable
+    name: str
+    nia: str
+    dni: str
+
+
+# ---------------------------------------------------------------------------
+# Result type
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LotAssignment:
+    """Result of assigning a single lot.
+
+    Attributes:
+        student_id: The matched student's id, or None if no candidate
+            scored above the configured threshold.
+        score: The achieved score (0.0 if unassigned).
+    """
+
+    student_id: Hashable | None
+    score: float
+
+
+# ---------------------------------------------------------------------------
+# Algorithm
+# ---------------------------------------------------------------------------
+
+
+def assign_lots_to_students(
+    lots: list[LotCandidate],
+    students: list[StudentCandidate],
+    strategy: ScoringStrategy,
+    threshold: float = 0.0,
+) -> dict[Hashable, LotAssignment]:
+    """Compute the globally optimal 1-to-1 assignment of lots to students.
+
+    Uses the Hungarian algorithm to maximise the total score across the
+    assignment subject to the 1-to-1 constraint. Lots whose best-matched
+    student scores below `threshold` are returned as unassigned
+    (student_id=None, score=0.0).
 
     Args:
-        exam: The Exam instance.
-        attributes: Dict of attribute name → OCR-recognized value.
+        lots: lots to be assigned. Each lot's `key` must be hashable.
+        students: roster of candidate students.
+        strategy: scoring strategy that computes (lot, student) -> [0, 1].
+        threshold: minimum score to accept an assignment. Pairs below
+            this score are dropped.
 
     Returns:
-        Tuple of (user, confidence) or (None, 0.0).
+        Mapping from `lot.key` to its `LotAssignment`. Every lot in
+        `lots` appears as a key in the returned dict.
     """
-    from apps.accounts.services.user_service import get_decrypted_dni
-    from apps.exams.models.exams import ExamConvocation
-
-    convocations = ExamConvocation.objects.filter(exam=exam).select_related("student")
-
-    students = [c.student for c in convocations]
-
+    if not lots:
+        return {}
     if not students:
-        return (None, 0.0)
+        return {lot.key: LotAssignment(student_id=None, score=0.0) for lot in lots}
 
-    # Try NIA match first (most reliable).
-    nia = attributes.get("nia", "").strip()
-    if nia:
-        for student in students:
-            if student.nia and _ocr_tolerant_match(nia, student.nia):
-                return (student, 0.95)
+    cost_matrix = _build_cost_matrix(lots, students, strategy)
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
-    # Try DNI match.
-    dni = attributes.get("dni", "").strip()
-    if dni:
-        for student in students:
-            decrypted_dni = get_decrypted_dni(student)
-            if decrypted_dni and _ocr_tolerant_match(dni, decrypted_dni):
-                return (student, 0.90)
-
-    # Try name match (fuzzy).
-    name = attributes.get("name", "").strip()
-    if name:
-        best_match = None
-        best_score = 0.0
-
-        for student in students:
-            full_name = f"{student.first_name} {student.last_name}"
-            score = _name_similarity(name, full_name)
-            if score > best_score:
-                best_score = score
-                best_match = student
-
-        if best_match and best_score >= MATCH_CONFIDENCE_THRESHOLD:
-            return (best_match, best_score)
-
-    return (None, 0.0)
+    n_lots, n_students = len(lots), len(students)
+    out: dict[Hashable, LotAssignment] = {
+        lot.key: LotAssignment(student_id=None, score=0.0) for lot in lots
+    }
+    for i, j in zip(row_ind, col_ind, strict=False):
+        if i >= n_lots or j >= n_students:
+            # Padding row/column from the square matrix: ignore.
+            continue
+        score = float(-cost_matrix[i, j])
+        if score >= threshold:
+            out[lots[i].key] = LotAssignment(
+                student_id=students[j].student_id,
+                score=score,
+            )
+    return out
 
 
-def _ocr_tolerant_match(ocr_text: str, expected: str) -> bool:
-    """Match strings with tolerance for common OCR errors.
+def _build_cost_matrix(
+    lots: list[LotCandidate],
+    students: list[StudentCandidate],
+    strategy: ScoringStrategy,
+) -> np.ndarray:
+    """Build a square cost matrix for `linear_sum_assignment`.
 
-    Normalizes both strings and checks if they match after
-    applying OCR confusion substitutions.
+    The Hungarian algorithm minimises cost, so we negate the scores.
+    The matrix is padded to a square with zeros: padding cells (cost=0)
+    are only chosen when no real cell is available (real costs are in
+    [-1, 0]), which is exactly the rectangular-case behaviour we want.
     """
-    ocr_clean = re.sub(r"\s+", "", ocr_text.upper())
-    expected_clean = re.sub(r"\s+", "", expected.upper())
-
-    if ocr_clean == expected_clean:
-        return True
-
-    # Try substituting common confusions.
-    if len(ocr_clean) != len(expected_clean):
-        return False
-
-    mismatches = 0
-    for a, b in zip(ocr_clean, expected_clean, strict=True):
-        if a != b:
-            # Check if this is a known OCR confusion.
-            confusions = _OCR_CONFUSIONS.get(a, "")
-            if b not in confusions:
-                mismatches += 1
-
-    # Allow up to 1 non-confusion mismatch for short strings,
-    # 2 for longer strings.
-    max_mismatches = 1 if len(expected_clean) < 10 else 2
-    return mismatches <= max_mismatches
-
-
-def _name_similarity(ocr_name: str, expected_name: str) -> float:
-    """Compute similarity between two names using Levenshtein distance.
-
-    Returns a score between 0.0 and 1.0.
-    """
-    a = ocr_name.lower().strip()
-    b = expected_name.lower().strip()
-
-    if not a or not b:
-        return 0.0
-
-    if a == b:
-        return 1.0
-
-    # Simple Levenshtein distance implementation.
-    distance = _levenshtein_distance(a, b)
-    max_len = max(len(a), len(b))
-
-    return 1.0 - (distance / max_len)
-
-
-def _levenshtein_distance(s1: str, s2: str) -> int:
-    """Compute Levenshtein edit distance between two strings."""
-    if len(s1) < len(s2):
-        return _levenshtein_distance(s2, s1)
-
-    if len(s2) == 0:
-        return len(s1)
-
-    prev_row = list(range(len(s2) + 1))
-
-    for i, c1 in enumerate(s1):
-        curr_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insertions = prev_row[j + 1] + 1
-            deletions = curr_row[j] + 1
-            substitutions = prev_row[j] + (c1 != c2)
-            curr_row.append(min(insertions, deletions, substitutions))
-        prev_row = curr_row
-
-    return prev_row[-1]
+    n = max(len(lots), len(students))
+    cost = np.zeros((n, n))
+    for i, lot in enumerate(lots):
+        for j, student in enumerate(students):
+            score = strategy.score_lot(
+                ocr_values=lot.ocr_values,
+                true_name=student.name,
+                true_nia=student.nia,
+                true_dni=student.dni,
+            )
+            cost[i, j] = -score
+    return cost

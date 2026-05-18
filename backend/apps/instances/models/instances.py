@@ -281,6 +281,19 @@ class ExamPage(TimestampedModel):
         blank=True,
         related_name="orphan_pages",
     )
+    batch = models.ForeignKey(
+        "ingestion.IngestionBatch",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pages",
+        help_text="Batch this page arrived with (e.g. a multi-page PDF upload).",
+    )
+    recognized_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Result of zone recognition: {zones: [...], qr_payload: {...}}",
+    )
 
     class Meta:
         ordering = ["page_number"]

@@ -922,13 +922,6 @@
 
     \textbf{Salida:} la tarea de reconocimiento OCR se ejecuta con el motor seleccionado.
 
-    \item \textbf{Registro de plugins de reconocedores.}
-
-    El sistema debe permitir registrar y mantener varios motores de OCR como plugins intercambiables, así como los reconocedores de QR y CHECKBOX como componentes fijos del sistema.
-
-    \textbf{Entrada:} configuración del sistema que define los motores OCR disponibles (por ejemplo, EasyOCR, Tesseract, servicios externos) y los reconocedores fijos de QR y CHECKBOX.
-
-    \textbf{Proceso:} cada motor OCR implementa la interfaz `BaseOCREngine` que acepta una imagen y devuelve el texto reconocido con un nivel de confianza. Los reconocedores de QR y CHECKBOX implementan la interfaz `BaseRecognizer` genérica con el mismo contrato `recognize(image\_bytes) → (value, confidence)`. Los motores OCR se registran con un identificador único, nombre descriptivo y parámetros propios (idioma, modelo entrenado, etc.). Los reconocedores QR y CHECKBOX no son configurables por organización: el sistema utiliza siempre la implementación fija.
 
     \textbf{Salida:} los motores OCR quedan disponibles para ser seleccionados como motor por defecto por organización o por petición.
 
@@ -941,16 +934,6 @@
     \textbf{Proceso:} el sistema determina si ya existe una instancia para el examen y alumno identificados. Si existe, añade la página como ExamPage con el número de orden indicado por el QR. Si no existe y la página es la portada (página número 1), crea una nueva instancia en estado ASSEMBLING. Si la página no es la portada y no existe instancia previa, la página espera en estado ORPHAN hasta que llegue la portada o hasta que el coordinador la gestione manualmente. El sistema evalúa si la instancia ha recibido todas las páginas esperadas según el número de PageProfiles del modelo; si es así, transiciona a RECEIVED y encola el reconocimiento de atributos completo.
 
     \textbf{Salida:} instancia actualizada con la nueva página, o instancia transitada a RECEIVED si está completa.
-
-    \item \textbf{Fallback de proximidad temporal para páginas sin QR.}
-
-    El sistema debe asociar temporalmente las páginas sin QR legible a la instancia más reciente del mismo escáner o sesión de ingesta, como mecanismo de fallback para exámenes de longitud variable.
-
-    \textbf{Entrada:} evento interno disparado cuando una página no puede identificarse mediante QR (incidencia QR\_READ\_ERROR).
-
-    \textbf{Proceso:} el sistema registra la marca temporal de recepción de la página y la identidad del origen (carpeta SFTP o sesión de ingesta). Busca la instancia cuya última página llegó más recientemente desde el mismo origen. Si existe una instancia candidata en estado ASSEMBLING y la diferencia temporal es inferior al umbral configurable (por defecto, 30 segundos), asocia la página huérfana a esa instancia con incidencia `ORPHAN\_PAGE`. Si no existe candidato, la página queda en estado ORPHAN sin instancia asignada, para gestión manual.
-
-    \textbf{Salida:} página asociada por proximidad con incidencia ORPHAN\_PAGE activa, o página en estado ORPHAN pendiente de gestión manual.
 
     \item \textbf{OCR sobre anotación de calificación.}
 

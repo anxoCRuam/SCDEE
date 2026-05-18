@@ -38,3 +38,5 @@ pandas
 matplotlib
 django-extensions>=3.2,<4.0
 pygraphviz
+rapidfuzz
+scipy>=1.10

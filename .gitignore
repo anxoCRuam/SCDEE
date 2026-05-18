@@ -82,3 +82,6 @@ notas.txt
 *.toc
 *.out
 *.xdy
+
+# Ignore dataset
+backend/tests/quality/dataset/

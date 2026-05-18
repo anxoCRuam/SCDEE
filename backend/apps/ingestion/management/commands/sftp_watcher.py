@@ -5,17 +5,15 @@ Monitors one or more directories for new scanned pages. When a new
 file appears, it is atomically claimed, enqueued as an ingestion
 task via Celery, and archived under ``.processed/``.
 
-Uses ``shutil.move`` instead of ``os.rename`` to avoid cross-device
-link errors on Docker overlay volumes.
-
-The organization is NOT configured here; it is extracted from the
-QR code embedded in each scanned page during the recognition step.
+Each file is wrapped in an ``IngestionBatch`` before being dispatched,
+so that multi-page PDFs (or future pre-assigned submissions) remain
+linked.
 
 Configuration (settings / env):
     INGESTION_WATCH_DIR: str or list[str] — directory paths to watch.
     SFTP_POLL_INTERVAL_SECONDS: polling interval (default 5).
     INGESTION_KEEP_PROCESSED: if False, processed files are deleted
-        instead of moved to ``.processed/`` (default True).
+        instead of archived (default True).
 
 Modes:
     Default — runs an infinite scan/sleep loop until interrupted
@@ -32,7 +30,6 @@ from __future__ import annotations
 import base64
 import logging
 import os
-import shutil
 import time
 import uuid
 from datetime import UTC, datetime
@@ -126,39 +123,44 @@ class Command(BaseCommand):
             self._claim_and_enqueue(path, filepath, filename)
 
     def _claim_and_enqueue(self, dirpath: str, filepath: str, filename: str) -> None:
-        """Claim the file, enqueue ingestion, then archive it.
-
-        ``shutil.move`` is used instead of ``os.rename`` to avoid
-        cross-device link errors on Docker overlay/volume mounts.
-        """
+        """Atomically claim the file, create an IngestionBatch, enqueue ingestion."""
         claim_path = os.path.join(
             dirpath,
             _PROCESSED_DIR_NAME,
             f".claim.{os.getpid()}.{uuid.uuid4().hex}.{filename}",
         )
 
-        # Step 1 — claim the file by moving it out of the inbox
         try:
-            shutil.move(filepath, claim_path)
+            os.rename(filepath, claim_path)
         except FileNotFoundError:
-            return  # Another watcher claimed it; nothing to do.
+            return
         except OSError as exc:
-            self.stderr.write(f"Failed to claim {filename}: {exc}")
+            logger.exception("Failed to claim %s: %s", filepath, exc)
             return
 
-        # Step 2 — read, encode and enqueue
         try:
             with open(claim_path, "rb") as f:
                 file_data = f.read()
 
             file_data_b64 = base64.b64encode(file_data).decode("ascii")
 
+            # ── Crear IngestionBatch ───────────────────────────
+            from apps.ingestion.models.ingestion import IngestionBatch
+
+            batch = IngestionBatch.objects.create(
+                source="watcher",
+                total_pages=1,  # la tarea lo corregirá si es PDF
+            )
+
             from apps.ingestion.tasks import ingest_page_task
 
-            ingest_page_task.delay(file_data_b64, filename)
-            self.stdout.write(f"Enqueued: {filename}")
+            ingest_page_task.delay(
+                file_data_b64,
+                filename,
+                batch_id=str(batch.id),
+            )
+            self.stdout.write(f"Enqueued: {filename} (batch {batch.id})")
 
-            # Step 3 — archive or delete
             if self.keep_processed:
                 stamp = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
                 final_path = os.path.join(
@@ -166,14 +168,14 @@ class Command(BaseCommand):
                     _PROCESSED_DIR_NAME,
                     f"{stamp}_{filename}",
                 )
-                shutil.move(claim_path, final_path)
+                os.rename(claim_path, final_path)
             else:
                 os.remove(claim_path)
 
         except Exception as exc:
+            logger.exception("Error processing %s", filename)
             self.stderr.write(f"Error processing {filename}: {exc}")
-            # Restore the file so the next scan retries
             try:
-                shutil.move(claim_path, filepath)
+                os.rename(claim_path, filepath)
             except OSError:
-                self.stderr.write(f"Could not restore {filename} after failure")
+                logger.exception("Could not restore %s after failure", filename)

@@ -25,14 +25,11 @@ logger = logging.getLogger(__name__)
 
 
 class OCRRecognizer(BaseRecognizer):
-    """Recognizer for OCR_TEXT and OCR_NUMBER zones."""
-
     def __init__(self, zone_type: str = "OCR_TEXT", engine_id: str | None = None):
         self.zone_type = zone_type
         self.engine_id = engine_id
 
-    def recognize(self, image_bytes: bytes) -> RecognitionResult:
-        """Run OCR on the zone image."""
+    def recognize(self, image_bytes: bytes, attribute: str = "") -> RecognitionResult:
         try:
             engine = get_ocr_engine(self.engine_id)
             text, confidence = engine.recognize_text(image_bytes)
@@ -40,11 +37,41 @@ class OCRRecognizer(BaseRecognizer):
             logger.warning("OCR recognition failed: %s", exc)
             return RecognitionResult(value=None, confidence=0.0, raw_value=str(exc))
 
-        # Post-process based on zone type.
-        if self.zone_type == "OCR_NUMBER":
-            return self._process_number(text, confidence)
+        # Post-process according to zone type and attribute
+        if self.zone_type == "OCR_NUMBER" or attribute in ("nia", "dni"):
+            value = self._clean_numeric(text, attribute)
+            confidence = confidence if value else confidence * 0.3
+        elif attribute in ("name", "surname"):
+            value = self._clean_alpha(text)
+            confidence = confidence if value else confidence * 0.5
+        else:
+            value = text.strip()
 
-        return RecognitionResult(value=text.strip(), confidence=confidence, raw_value=text)
+        return RecognitionResult(
+            value=value,
+            confidence=confidence,
+            raw_value=text,
+        )
+
+    def _clean_numeric(self, text: str, attribute: str) -> str:
+        """Keep only digits (and optionally one letter for DNI)."""
+        import re
+
+        if attribute == "dni":
+            # Allow digits and letters, remove everything else, uppercase
+            return re.sub(r"[^A-Za-z0-9]", "", text).upper()
+            # Optional: force format 8 digits + 1 letter if enabled
+            # For now, just return cleaned
+        # NIA: digits only
+        return re.sub(r"[^\d]", "", text)
+
+    def _clean_alpha(self, text: str) -> str:
+        """Keep only letters and spaces, uppercase."""
+        import re
+
+        cleaned = re.sub(r"[^A-Za-z\s]", "", text).upper()
+        # Collapse multiple spaces
+        return " ".join(cleaned.split())
 
     def _process_number(self, text: str, confidence: float) -> RecognitionResult:
         """Validate and clean numeric OCR results."""
