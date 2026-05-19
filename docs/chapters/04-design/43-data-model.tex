@@ -1,0 +1,74 @@
+\subsection{Jerarquía de modelos base}
+\label{SS:DES-MODEL-STRUCTURE}
+
+Todas las entidades del dominio heredan de una jerarquía de tres clases
+abstractas:
+
+\begin{description}
+  \item[\texttt{UUIDModel}] Proporciona un identificador primario
+  \acs{uuid} v4. Frente a enteros autoincrementales, los \acs{uuid}
+  evitan filtraciones de información (volumen de datos, orden de
+  creación) y son seguros frente a colisiones en escalado horizontal.
+
+  \item[\texttt{TimestampedModel}] Añade \texttt{created\_at} y
+  \texttt{updated\_at} automáticos, proporcionando una traza de auditoría
+  implícita.
+
+  \item[\texttt{OrganizationOwnedModel}] Añade la clave foránea
+  \texttt{organization} y dos \textit{managers}: \texttt{objects}
+  (filtrado automáticamente por organización) y \texttt{unfiltered}
+  (sin filtro, para tareas del sistema).
+\end{description}
+
+El modelo de datos se organiza en once subdominios, uno por aplicación
+Django, con responsabilidades acotadas y dependencias explícitas. Los
+diagramas de clase de cada subdominio se generan automáticamente con
+\texttt{graph\_models} de \texttt{django-extensions} y se recogen en el
+\cref{AP:CLASS-DIAGRAMS}; la vista global, con todas las entidades y
+relaciones, se incluye en la \cref{fig:class-global}.
+
+
+\subsection{Aislamiento multi-tenant}
+\label{SS:DES-MODEL-ISOLATION}
+
+El aislamiento entre organizaciones se garantiza mediante el
+\texttt{TenantManager}, que filtra automáticamente cada \textit{query}
+por el \texttt{organization\_id} del usuario autenticado. El contexto
+del \dfn{tenant} se almacena en una variable de hilo y se establece
+durante la autenticación \acs{jwt}, antes de que la vista procese la
+petición. El flujo completo —desde el \texttt{POST /auth/login/} hasta
+la limpieza del contexto por el \textit{middleware}— se diagrama en la
+\cref{fig:seq-auth} (\cref{AP:SEQUENCE}).
+
+El uso de \texttt{TenantManager} como \textit{manager} por defecto
+hace estructuralmente imposible el olvido de un filtro de organización
+en una \textit{query} manual, eliminando una fuente común de fugas de
+datos entre \dfnpl{tenant}. La implementación concreta de los
+\textit{managers} y del contexto de hilo se describe en
+\cref{SS:IMPL-MULTITENANT}.
+
+
+\subsection{Modelo de permisos contextuales}
+\label{SS:DES-PERMISSIONS}
+
+El sistema de autorización opera en tres capas
+(\cref{fig:class-subjects}):
+
+\begin{enumerate}
+  \item El \textit{flag} \texttt{is\_staff} otorga permisos plenos de
+  \dfn{gestor} sobre todas las asignaturas de la organización.
+
+  \item La membresía de asignatura (\texttt{SubjectMembership}) define un
+  rol (\texttt{COORDINATOR}, \texttt{TEACHER} o \texttt{STUDENT}) con
+  trece permisos contextuales por defecto, configurables por organización
+  y anulables individualmente por el \dfn{coordinador} mediante el campo
+  \texttt{permission\_overrides}.
+
+  \item Las reglas de asignación (\texttt{AssignmentRule}) restringen el
+  acceso a instancias o problemas concretos.
+\end{enumerate}
+
+La resolución de permisos efectivos combina los valores por defecto del
+rol, la configuración de la organización y las anulaciones del miembro,
+con la restricción de que un \dfn{coordinador} no puede delegar un
+permiso que él mismo no posee.

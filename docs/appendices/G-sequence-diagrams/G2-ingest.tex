@@ -1,0 +1,25 @@
+El flujo de ingesta multipágina cubre la entrega de un pdf con
+varias páginas escaneadas por el \dfn{watcher} de \acs{sftp}. El
+diagrama (\cref{fig:seq-multipage-ingest}) detalla la división del
+pdf en páginas png, la subida a MinIO, la creación de las
+\texttt{ExamPage} y el encolado de las subtareas de reconocimiento
+correspondientes. Las tres subtareas que componen el \textit{pipeline}
+en su conjunto se diagraman en la \cref{fig:ocr-flow-full}.
+
+\begin{figure}[Flujo de ingesta multipágina]%
+              {fig:seq-multipage-ingest}%
+              {Diagrama de secuencia de la ingesta de un \acs{pdf}
+               multipágina: división, subida a MinIO, creación de las
+               \texttt{ExamPage} y encolado de las subtareas de
+               reconocimiento.}
+  \image{\textwidth}{}{plantuml/multipage_ingest_secuence}
+\end{figure}
+
+\begin{figure}[Pipeline completo de ingesta y reconocimiento]%
+              {fig:ocr-flow-full}%
+              {Vista combinada de las tres subtareas del
+               \textit{pipeline} en su orden de ejecución natural:
+               \texttt{ingest\_page\_task}, \texttt{recognize\_page\_task}
+               y \texttt{assemble\_exam\_pages}.}
+  \image{}{0.85\textheight}{plantuml/ocr_flow_v2}
+\end{figure}

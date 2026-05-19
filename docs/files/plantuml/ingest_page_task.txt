@@ -1,0 +1,34 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam ActivityDiamondBackgroundColor #FEFEFE
+skinparam ActivityBackgroundColor #F4F4F4
+skinparam ActivityBorderColor #444444
+skinparam ArrowColor #444444
+title Subtarea 1: ingest_page_task (normalización)
+
+start
+:Watcher detecta fichero
+en carpeta SFTP;
+:Encola ingest_page_task
+en cola "recognition" de Celery;
+
+partition "ingest_page_task" {
+  :Valida tamaño del fichero
+  (< max_size_mb);
+  if (¿Es PDF?) then (sí)
+    :Divide cada página
+    a PNG a 200 DPI;
+  else (imagen)
+    :Convierte a PNG
+    si no lo es ya;
+  endif
+  :Sube cada página a MinIO;
+  :Crea ExamPage
+  (status = PENDING_RECOGNITION);
+  :Encola recognize_page_task
+  por cada página;
+}
+
+stop
+@enduml

@@ -2,6 +2,13 @@ Las pruebas de carga se ejecutan con Locust contra el \textit{endpoint}
 \texttt{/api/v1/} para verificar el \cref{rnf:concurrency}. Se han
 ejecutado tres escenarios con perfiles de carga representativos:
 
+\begin{figure}[Fase 2: percentiles de latencia]%
+              {fig:cdetail-phase2-latency}%
+              {Fase 2 (corrección concurrente): percentiles de latencia
+               por \textit{endpoint}.}
+  \image{}{}{load_test/graphs/phase2/01_latency_percentiles}
+\end{figure}
+
 \begin{enumerate}
 
   \item \textbf{Ingesta sostenida.} Simulación de una cabina de escaneo
@@ -13,7 +20,7 @@ ejecutado tres escenarios con perfiles de carga representativos:
   anotando y calificando simultáneamente. El sistema procesó cerca de
   5\,900 peticiones sin errores, con latencias medianas de 14 a 44
   milisegundos por operación, satisfaciendo el objetivo de p95 inferior
-  a 500 milisegundos para los \textit{endpoints} \acs{crud}.
+  a 500 milisegundos para los \textit{endpoints} \acs{crud} (\cref{fig:cdetail-phase2-latency}).
 
   \item \textbf{Pico de publicación.} Simulación de la situación más
   exigente: la publicación de calificaciones disparando un acceso masivo
@@ -22,7 +29,10 @@ ejecutado tres escenarios con perfiles de carga representativos:
   presenta degradación significativa en
   \texttt{student/instance/download} (alrededor del 21\,\% de errores
   \acs{http} 500 y latencias medianas de 24 segundos), lo que excede el
-  objetivo de respuesta sin errores.
+  objetivo de respuesta sin errores. Esto es debido a la gran carga de trabajo
+  que implica el endpoint (conexión con redis y la base de datos,
+  recuperación del pdf y generación de un nuevo pdf con la marca de agua en todas
+  las páginas).
 
 \end{enumerate}
 

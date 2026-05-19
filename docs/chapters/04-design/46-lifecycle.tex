@@ -1,0 +1,51 @@
+Cada \dfn{instancia} de examen atraviesa una secuencia de diez estados
+que reflejan su progreso desde la llegada de la primera página hasta el
+archivo definitivo del expediente. La \cref{fig:scdee-exam-state}
+muestra la máquina de estados completa, incluyendo las transiciones de
+retroceso permitidas para corregir errores en cualquiera de las fases.
+
+\begin{figure}[Máquina de estados de \texttt{ExamInstance}]%
+              {fig:scdee-exam-state}%
+              {Ciclo de vida de una \dfn{instancia} de examen. Las
+               flechas marcadas como \texttt{<<retroceso>>} representan
+               las transiciones de marcha atrás permitidas al
+               coordinador para corregir errores en cualquier fase del
+               proceso.}
+  \image{\textwidth}{}{plantuml/exam_state}
+\end{figure}
+
+Las transiciones se validan contra una tabla central
+(\texttt{VALID\_TRANSITIONS}) antes de aplicarse, lo que impide saltos
+arbitrarios y centraliza la lógica de cambio de estado en un único
+punto. Por ejemplo, la transición a \texttt{PUBLISHED} requiere que la
+instancia no tenga incidencias activas y que todos los problemas tengan
+una calificación numérica asignada; cualquier intento de publicar una
+instancia con incidencias devuelve un error \texttt{409 Conflict} y deja
+el estado anterior intacto. Las transiciones de retroceso
+—\texttt{GRADED} $\to$ \texttt{PENDING\_GRADING}, \texttt{PUBLISHED}
+$\to$ \texttt{GRADED} y \texttt{FINALIZED} $\to$
+\texttt{PENDING\_REVIEW}— permiten al coordinador reabrir la
+corrección, retirar una publicación o atender solicitudes de revisión
+tardías sin necesidad de borrar y recrear la instancia.
+
+La fase de revisión, comprendida entre \texttt{IN\_REVIEW} y
+\texttt{FINALIZED}, está gobernada por una ventana de revisión
+configurada por el coordinador en el momento de la publicación. La
+apertura y el cierre de la ventana se automatizan mediante Celery Beat:
+al inicio de la ventana, todas las instancias en \texttt{PUBLISHED}
+transitan a \texttt{IN\_REVIEW} y se notifica a los alumnos; al
+cierre, las instancias sin solicitud activa transitan a
+\texttt{FINALIZED}, mientras que las que tienen una solicitud abierta
+quedan en \texttt{PENDING\_REVIEW} hasta que el corrector la resuelva.
+El detalle del flujo de revisión —creación de solicitudes por el
+alumno, resolución por el corrector y notificaciones derivadas— se
+diagrama en la \cref{fig:seq-review} (\cref{AP:SEQUENCE}).
+
+A nivel de página, cada \texttt{ExamPage} mantiene un estado más
+sencillo (\texttt{PENDING\_RECOGNITION}, \texttt{RECOGNIZED},
+\texttt{ORPHAN}, \texttt{DISCARDED}) independiente del estado de la
+instancia a la que esté asociada. Esta separación permite reintentar
+manualmente el reconocimiento de una página problemática sin afectar al
+resto de la instancia, y conservar páginas huérfanas
+(\texttt{ORPHAN})~\textemdash{}páginas reconocidas que no encajan en
+ningún examen vigente\textemdash{} para diagnóstico posterior.

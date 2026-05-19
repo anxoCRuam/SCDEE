@@ -1,28 +1,29 @@
 """
-Edge-case integration tests for the instance assembler.
+Edge-case integration tests for the v2 batched assembler.
 
-The existing ``test_ingestion.py`` covers the happy paths
-(in-order assembly, ASSEMBLING→RECEIVED transition, MISSING_PAGE
-detection). This module covers the awkward shapes that real-world
-scanners produce, where the assembler's correctness shows or breaks:
+These tests exercise ``assemble_exam(exam_id)`` — the deferred,
+lot-based assembler that runs after the assembly window closes —
+over awkward shapes that real-world scanners produce.
 
-- Pages arriving in **reverse order** must still aggregate into one
-  instance once page 1 finally appears (not be split into two).
-- **Duplicate** pages (same instance, same page number, different
-  scan) must be flagged as duplicates rather than counted twice
-  against ``expected_pages``.
-- A **page that arrives after assembly is complete** must be treated
-  as ``EXTRA_PAGE`` (a real exam may have an extra appendix, or a
-  scan glitch).
-- An **orphan** page (QR mismatch, no matching exam in the org) must
-  end up as ``ORPHAN`` without crashing the assembler.
+What we cover:
 
-The tests work at the service-layer level (``assemble_page``
+- Three pages of a single batch all end up in one instance regardless
+  of the order they were created in.
+- Duplicate page numbers within the same batch are attached but do
+  not falsely complete the instance.
+- Pages of a batch with more pages than the model declares are all
+  attached (v2 does not separately tag extras as ``EXTRA_PAGE``).
+- A page whose QR points to a different exam is not picked up by
+  ``assemble_exam`` of this exam.
+- A complete in-order batch transitions ASSEMBLING → RECEIVED.
+
+The tests operate at the service-layer level (``assemble_exam``
 directly) rather than going through HTTP, because the assembler is
-the unit under test — going through HTTP would also exercise the
-recognition pipeline and cloud the failure mode.
+the unit under test. The recognition step (which sets
+``recognized_data`` on pages) is simulated by writing the structure
+directly to each page.
 
-References: RF-9.10, RF-9.11, RF-7.1, RF-7.6.
+References: RF-9.10, RF-9.11, RF-7.1.
 """
 
 from __future__ import annotations
@@ -32,14 +33,15 @@ import uuid
 import pytest
 from django.contrib.auth import get_user_model
 
+from apps.accounts.services.encryption import encrypt_dni
 from apps.courses.models.courses import AcademicCourse
-from apps.exams.models.exams import Exam, ExamModel, PageProfile
-from apps.ingestion.services.assembler import assemble_page
+from apps.exams.models.exams import Exam, ExamConvocation, ExamModel, PageProfile
+from apps.ingestion.models.ingestion import IngestionBatch
+from apps.ingestion.services.assembler import assemble_exam
 from apps.instances.models.instances import (
     ExamInstance,
     ExamPage,
     InstanceStatus,
-    PageIssueType,
     PageStatus,
 )
 from apps.organizations.models.organization import Organization
@@ -51,8 +53,13 @@ pytestmark = pytest.mark.django_db
 # ── Helpers ────────────────────────────────────────────────────────
 
 
-def _build_three_page_model():
-    """Build a tenant + exam + model with exactly three PageProfiles."""
+def _build_three_page_exam_with_one_student() -> dict:
+    """Build org + exam + model with three PageProfiles + one convoked student.
+
+    The student has known identifiers (John Doe, NIA 111111, DNI 11111111H)
+    so the OCR'd zones attached to each test page score 1.0 against them
+    and the Hungarian assignment is trivial.
+    """
     user_model = get_user_model()
     suffix = uuid.uuid4().hex[:8]
 
@@ -84,217 +91,243 @@ def _build_three_page_model():
     model = ExamModel.objects.create(label="A", exam=exam, blank_pdf_pages=3)
     for i in (1, 2, 3):
         PageProfile.objects.create(
-            exam_model=model, page_number=i, page_width=595.0, page_height=842.0
+            exam_model=model,
+            page_number=i,
+            page_width=595.0,
+            page_height=842.0,
         )
 
-    return {"org": org, "exam": exam, "model": model}
-
-
-def _make_page(*, organization, storage_ref: str = "scan/test.png") -> ExamPage:
-    """Create a fresh ExamPage row in PENDING_RECOGNITION state."""
-    return ExamPage.objects.create(
-        organization=organization,
-        storage_ref=storage_ref,
-        status=PageStatus.PENDING_RECOGNITION,
+    student = user_model.objects.create_user(
+        email=f"s-{suffix}@x.com",
+        password="P@ss123!",  # noqa: S106
+        first_name="John",
+        last_name="Doe",
+        organization=org,
+        nia="111111",
     )
+    encrypted, nonce = encrypt_dni("11111111H")
+    student.encrypted_dni = encrypted
+    student.dni_nonce = nonce
+    student.save()
+    SubjectMembership.objects.create(
+        organization=org,
+        user=student,
+        subject=subject,
+        role=MembershipRole.STUDENT,
+        is_active=True,
+    )
+    ExamConvocation.objects.create(exam=exam, student=student)
+
+    return {"org": org, "exam": exam, "model": model, "student": student}
 
 
-def _qr_results(*, exam_id: str, model_id: str, page_number: int) -> dict:
-    """Build the recognition_results dict an assembler would receive
-    after a successful QR decode."""
-    return {
+def _make_batch(organization: Organization) -> IngestionBatch:
+    """Create a manual-source IngestionBatch."""
+    return IngestionBatch.objects.create(source="manual")
+
+
+def _make_recognized_page(
+    *,
+    organization: Organization,
+    exam: Exam,
+    model: ExamModel,
+    page_number: int,
+    batch: IngestionBatch | None = None,
+    ocr_name: str = "John Doe",
+    ocr_nia: str = "111111",
+    ocr_dni: str = "11111111H",
+) -> ExamPage:
+    """Create an ExamPage already in RECOGNIZED state with QR + OCR zones."""
+    page = ExamPage.objects.create(
+        organization=organization,
+        batch=batch,
+        storage_ref=f"scan/{uuid.uuid4().hex[:8]}.png",
+        status=PageStatus.RECOGNIZED,
+    )
+    page.recognized_data = {
         "qr_payload": {
             "valid": True,
-            "exam_id": exam_id,
-            "model_id": model_id,
+            "exam_id": str(exam.pk),
+            "model_id": str(model.pk),
             "page_number": page_number,
-            "org_id": "irrelevant-here",
+            "org_id": str(organization.pk),
+            "checksum": "test",
         },
-        "zones": [],
+        "zones": [
+            {
+                "attribute": "name",
+                "value": ocr_name,
+                "zone_type": "OCR_TEXT",
+                "confidence": 0.9,
+            },
+            {
+                "attribute": "nia",
+                "value": ocr_nia,
+                "zone_type": "OCR_NUMBER",
+                "confidence": 0.9,
+            },
+            {
+                "attribute": "dni",
+                "value": ocr_dni,
+                "zone_type": "OCR_TEXT",
+                "confidence": 0.9,
+            },
+        ],
     }
+    page.save()
+    return page
 
 
 # ── Tests ──────────────────────────────────────────────────────────
 
 
-def test_pages_arriving_in_reverse_order_assemble_into_one_instance():
-    """Pages 3, 2, 1 (in that order) must form a single ASSEMBLING→RECEIVED instance.
+def test_pages_of_same_batch_assemble_into_one_instance():
+    """Three pages in one batch end up in a single instance regardless
+    of the order in which they were created.
 
-    The assembler creates the instance when page 1 arrives, but pages
-    2 and 3 arriving *first* must not create their own orphan
-    instances. Implementation expectation: they end up as ORPHAN until
-    page 1 lands and the existing instance can take them.
-
-    Note: the current assembler creates the instance ONLY on page 1;
-    pages 2/3 arriving before page 1 are routed via
-    ``_attach_to_existing_instance`` which finds no candidate, so they
-    become ``ORPHAN``. This is the documented fallback behaviour
-    (RF-9.10). After page 1 creates the instance, a real recovery
-    workflow would re-attach the orphans manually — that part is out
-    of scope for the assembler itself, and this test pins down the
-    *current* behaviour so any future change is intentional.
+    In v2 the batch_id is the strongest a-priori signal that pages
+    belong together, so it is the lot boundary. Creation order is
+    irrelevant: ``_group_pages_into_lots`` groups by batch_id and the
+    assignment is done on the lot as a whole.
     """
-    setup = _build_three_page_model()
-    org = setup["org"]
-    exam = setup["exam"]
-    model = setup["model"]
+    setup = _build_three_page_exam_with_one_student()
+    org, exam, model = setup["org"], setup["exam"], setup["model"]
+    batch = _make_batch(org)
 
-    page3 = _make_page(organization=org)
-    page2 = _make_page(organization=org)
-    page1 = _make_page(organization=org)
+    # Insert "out of order".
+    _make_recognized_page(organization=org, exam=exam, model=model, page_number=3, batch=batch)
+    _make_recognized_page(organization=org, exam=exam, model=model, page_number=2, batch=batch)
+    _make_recognized_page(organization=org, exam=exam, model=model, page_number=1, batch=batch)
 
-    # Page 3 first — no instance yet.
-    assemble_page(
-        page3,
-        _qr_results(exam_id=str(exam.pk), model_id=str(model.pk), page_number=3),
-    )
-    page3.refresh_from_db()
-    assert page3.status == PageStatus.ORPHAN
-    assert ExamInstance.unfiltered.filter(exam=exam).count() == 0
+    assemble_exam(str(exam.pk))
 
-    # Page 2 also before the cover — also orphan.
-    assemble_page(
-        page2,
-        _qr_results(exam_id=str(exam.pk), model_id=str(model.pk), page_number=2),
-    )
-    page2.refresh_from_db()
-    assert page2.status == PageStatus.ORPHAN
-    assert ExamInstance.unfiltered.filter(exam=exam).count() == 0
-
-    # Page 1 finally lands → instance is created.
-    assemble_page(
-        page1,
-        _qr_results(exam_id=str(exam.pk), model_id=str(model.pk), page_number=1),
-    )
-    instances = list(ExamInstance.unfiltered.filter(exam=exam))
-    assert len(instances) == 1, "Page 1 must create exactly one instance."
+    instances = list(ExamInstance.unfiltered.filter(exam=exam, student__isnull=False))
+    assert len(instances) == 1, "Pages of one batch must collapse to one instance."
     instance = instances[0]
-    page1.refresh_from_db()
-    assert page1.instance_id == instance.pk
-
-
-def test_duplicate_page_number_does_not_count_twice_for_completion():
-    """The same page number scanned twice must not falsely complete assembly.
-
-    Scenario: a 3-page exam, page 1 arrives, then page 2 arrives, then
-    page 2 arrives *again* (e.g. the operator re-scanned a smudged
-    sheet). Without proper handling the assembler might count
-    received_count = 3 and transition to RECEIVED prematurely.
-    """
-    setup = _build_three_page_model()
-    org, exam, model = setup["org"], setup["exam"], setup["model"]
-
-    page1 = _make_page(organization=org)
-    page2_first = _make_page(organization=org)
-    page2_second = _make_page(organization=org)
-
-    assemble_page(page1, _qr_results(exam_id=str(exam.pk), model_id=str(model.pk), page_number=1))
-    assemble_page(
-        page2_first,
-        _qr_results(exam_id=str(exam.pk), model_id=str(model.pk), page_number=2),
-    )
-
-    instance = ExamInstance.unfiltered.get(exam=exam)
-    assert instance.status == InstanceStatus.ASSEMBLING
-
-    # The duplicate. Same page number, fresh page row.
-    assemble_page(
-        page2_second,
-        _qr_results(exam_id=str(exam.pk), model_id=str(model.pk), page_number=2),
-    )
-
-    instance.refresh_from_db()
-    # Both copies of page 2 should have been attached to the same
-    # instance. The instance must NOT have transitioned to RECEIVED:
-    # we still need page 3.
-    assert instance.status == InstanceStatus.ASSEMBLING, (
-        "Two copies of page 2 must not be counted as 'page 2 + page 3'. "
-        "Instance prematurely advanced to RECEIVED — the assembler is "
-        "mistaking duplicates for distinct pages."
-    )
-
-
-def test_orphan_extra_page_arrives_after_assembly_completes():
-    """A page beyond the expected count is flagged as EXTRA_PAGE.
-
-    Scenario: the model declares 3 pages. All three arrive correctly
-    and the instance reaches RECEIVED. Then a fourth page (same
-    exam/model, page_number=4) arrives — perhaps a scanner glitch or
-    a teacher slipped an extra sheet under the stack.
-    """
-    setup = _build_three_page_model()
-    org, exam, model = setup["org"], setup["exam"], setup["model"]
-
-    for n in (1, 2, 3):
-        page = _make_page(organization=org)
-        assemble_page(
-            page,
-            _qr_results(exam_id=str(exam.pk), model_id=str(model.pk), page_number=n),
-        )
-
-    instance = ExamInstance.unfiltered.get(exam=exam)
+    assert instance.student_id == setup["student"].pk
+    assert instance.pages.count() == 3
+    # Page numbers come from the QR payload, not from creation order.
+    assert sorted(p.page_number for p in instance.pages.all()) == [1, 2, 3]
     assert instance.status == InstanceStatus.RECEIVED
 
-    # Fourth page arrives.
-    extra = _make_page(organization=org)
-    assemble_page(extra, _qr_results(exam_id=str(exam.pk), model_id=str(model.pk), page_number=4))
 
-    extra.refresh_from_db()
-    # The extra page should be flagged. Implementation specifics: the
-    # current assembler sets ``issue_type=EXTRA_PAGE`` when
-    # ``page_number > expected_pages`` and routes through
-    # ``_attach_to_existing_instance`` (which won't find an
-    # ASSEMBLING instance — already RECEIVED). So the page becomes
-    # ORPHAN with the EXTRA_PAGE flag. Either is acceptable as long
-    # as the page does NOT silently end up in the original instance.
-    assert (
-        extra.issue_type == PageIssueType.EXTRA_PAGE
-    ), f"Page beyond expected_pages must be tagged EXTRA_PAGE, got {extra.issue_type}."
+def test_duplicate_page_number_does_not_falsely_complete_assembly():
+    """Pages 1, 2, 2 in one batch must NOT advance the instance to RECEIVED.
 
-
-def test_qr_pointing_at_unknown_exam_marks_page_orphan():
-    """A QR with a valid checksum but pointing to an exam that does not exist
-    in the database must produce an ORPHAN page, not a crash.
-
-    This protects against forged QRs and against stale paper
-    (a printed exam from a deleted exam still has a valid checksum
-    by construction — checksum is a hash, not a signature).
+    All three pages attach to the same instance (the lot is one
+    student's exam), but completion is supposed to be measured by
+    distinct page numbers — page 3 is still missing. If the test fails
+    by transitioning to RECEIVED, ``check_assembling_complete`` is
+    counting attached pages and not deduplicating by ``page_number``.
     """
-    setup = _build_three_page_model()
-    org = setup["org"]
-    page = _make_page(organization=org)
+    setup = _build_three_page_exam_with_one_student()
+    org, exam, model = setup["org"], setup["exam"], setup["model"]
+    batch = _make_batch(org)
 
-    # Unknown exam id (well-formed UUID, no row).
-    fake_exam_id = str(uuid.uuid4())
-    fake_model_id = str(uuid.uuid4())
+    _make_recognized_page(organization=org, exam=exam, model=model, page_number=1, batch=batch)
+    _make_recognized_page(organization=org, exam=exam, model=model, page_number=2, batch=batch)
+    _make_recognized_page(organization=org, exam=exam, model=model, page_number=2, batch=batch)
 
-    assemble_page(
-        page,
-        _qr_results(exam_id=fake_exam_id, model_id=fake_model_id, page_number=1),
+    assemble_exam(str(exam.pk))
+
+    instance = ExamInstance.unfiltered.get(exam=exam, student__isnull=False)
+    assert instance.pages.count() == 3, "All three pages must be attached to the instance."
+    assert instance.status == InstanceStatus.ASSEMBLING, (
+        "Two copies of page 2 must not be counted as 'page 2 + page 3'. "
+        "Instance prematurely advanced to RECEIVED — check_assembling_complete "
+        "is mistaking duplicates for distinct pages."
     )
 
+
+def test_extra_page_in_batch_attaches_without_failing():
+    """A batch with one more page than the model declares attaches every
+    page; v2 does not flag extras as EXTRA_PAGE.
+
+    This test pins down current behaviour explicitly. The legacy
+    per-page assembler marked ``page_number > expected_pages`` as
+    ``EXTRA_PAGE``; v2 attaches every page in the lot without
+    page-level inspection. If you want EXTRA_PAGE detection back, add
+    it inside ``_persist_lot`` in ``assembler_v2.py``.
+    """
+    setup = _build_three_page_exam_with_one_student()
+    org, exam, model = setup["org"], setup["exam"], setup["model"]
+    batch = _make_batch(org)
+
+    for n in (1, 2, 3, 4):
+        _make_recognized_page(
+            organization=org,
+            exam=exam,
+            model=model,
+            page_number=n,
+            batch=batch,
+        )
+
+    assemble_exam(str(exam.pk))
+
+    instance = ExamInstance.unfiltered.get(exam=exam, student__isnull=False)
+    assert instance.pages.count() == 4, "All four pages must be attached."
+    # Received >= expected → transitioned to RECEIVED.
+    assert instance.status == InstanceStatus.RECEIVED
+
+
+def test_page_with_qr_for_unknown_exam_is_not_processed():
+    """A page whose QR points to a different exam is left alone.
+
+    ``_load_pending_pages`` filters by ``qr_payload.exam_id``, so
+    foreign pages are simply not in scope for an ``assemble_exam(other)``
+    run. They remain instance-less and RECOGNIZED, waiting for an
+    assembly of their own exam — which will never come if their
+    exam_id is forged or stale. Either way the assembler does not
+    crash and does not mis-attach them.
+    """
+    setup = _build_three_page_exam_with_one_student()
+    org, exam = setup["org"], setup["exam"]
+
+    fake_exam_id = uuid.uuid4()
+    page = ExamPage.objects.create(
+        organization=org,
+        storage_ref="scan/fake.png",
+        status=PageStatus.RECOGNIZED,
+    )
+    page.recognized_data = {
+        "qr_payload": {
+            "valid": True,
+            "exam_id": str(fake_exam_id),  # not the real exam
+            "model_id": str(uuid.uuid4()),
+            "page_number": 1,
+            "org_id": str(org.pk),
+        },
+        "zones": [],
+    }
+    page.save()
+
+    assemble_exam(str(exam.pk))
+
     page.refresh_from_db()
-    assert page.status == PageStatus.ORPHAN
-    assert page.issue_type == PageIssueType.QR_MISMATCH
+    assert page.instance_id is None, "Foreign page must not be attached."
+    assert page.status == PageStatus.RECOGNIZED, "Foreign page must not be re-statused."
 
 
 def test_complete_assembly_three_pages_in_order():
-    """Sanity: the assembler's happy path also passes through this module.
+    """Sanity: the happy path through ``assemble_exam`` works end-to-end.
 
-    Catches regressions where edge-case fixes accidentally break the
-    base case, which the existing tests in test_ingestion.py also
-    cover but are far from these. Local sanity test.
+    Catches regressions where edge-case fixes break the base case.
     """
-    setup = _build_three_page_model()
+    setup = _build_three_page_exam_with_one_student()
     org, exam, model = setup["org"], setup["exam"], setup["model"]
+    batch = _make_batch(org)
 
     for n in (1, 2, 3):
-        page = _make_page(organization=org)
-        assemble_page(
-            page,
-            _qr_results(exam_id=str(exam.pk), model_id=str(model.pk), page_number=n),
+        _make_recognized_page(
+            organization=org,
+            exam=exam,
+            model=model,
+            page_number=n,
+            batch=batch,
         )
 
-    instance = ExamInstance.unfiltered.get(exam=exam)
-    assert instance.status == InstanceStatus.RECEIVED
+    assemble_exam(str(exam.pk))
+
+    instance = ExamInstance.unfiltered.get(exam=exam, student__isnull=False)
     assert instance.pages.count() == 3
+    assert instance.status == InstanceStatus.RECEIVED

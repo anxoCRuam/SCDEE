@@ -1,0 +1,30 @@
+Este apéndice recoge los diagramas de secuencia que ilustran los flujos
+operativos más relevantes del \dfn{backend} del SCDEE. Los diagramas se
+generan a partir de los ficheros PlantUML del directorio
+\texttt{files/plantuml/} del repositorio y se incluyen aquí en su
+versión renderizada. Cada uno se referencia desde la sección del cuerpo
+correspondiente:
+
+\begin{itemize}
+  \item La \cref{fig:seq-auth} acompaña al \cref{SEC:DES-DATA} y al
+  \cref{SS:IMPL-MULTITENANT}: cubre el flujo de autenticación
+  \acs{jwt}, el establecimiento del contexto de \dfn{tenant} y la
+  primera consulta protegida.
+  \item La \cref{fig:seq-multipage-ingest} acompaña al
+  \cref{SEC:DES-INGEST}: cubre el flujo de ingesta de un \acs{pdf}
+  multipágina, desde el \dfn{watcher} de \acs{sftp} hasta el
+  \texttt{schedule\_assembly}.
+  \item La \cref{fig:seq-review} acompaña al \cref{SEC:DES-LIFECYCLE}:
+  cubre el flujo de revisión, incluyendo la creación de la solicitud
+  por el alumno, la resolución por el corrector y las notificaciones
+  derivadas.
+  \item La \cref{fig:ocr-flow-full} acompaña al \cref{SEC:DES-INGEST}:
+  combina las tres subtareas del \textit{pipeline}
+  (\texttt{ingest\_page\_task}, \texttt{recognize\_page\_task} y
+  \texttt{assemble\_exam\_pages}) en su orden de ejecución natural,
+  como vista global del \textit{pipeline}.
+\end{itemize}
+
+Para preservar la legibilidad, los diagramas se reproducen aquí a su
+tamaño original. Al ser flotantes, su posición exacta puede diferir
+ligeramente del orden de las referencias en el texto.

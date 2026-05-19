@@ -1,34 +1,39 @@
-La corrección de exámenes escritos es un proceso intensivo
-en tiempo que carece de plataformas adaptadas al contexto académico
-español. Las soluciones existentes, mayoritariamente extranjeras,
-presentan barreras de idioma e integración incompleta con los sistemas
-de gestión académica nacionales.
+La corrección de exámenes escritos es un proceso intensivo en tiempo que
+carece de plataformas adaptadas al contexto académico español. Las
+soluciones existentes, mayoritariamente extranjeras, presentan barreras
+de idioma e integración incompleta con los sistemas de gestión académica
+nacionales.
 
 Este Trabajo Fin de Grado presenta el diseño y la implementación del
 \dfn{backend} del SCDEE (Sistema de Corrección Digital de Exámenes
-Escritos), un servicio distribuido \dfn{multitenant} que automatiza el
-ciclo completo de corrección desde la entrega física de las páginas
-escaneadas hasta el archivo definitivo del examen corregido. El sistema
-combina un \textit{pipeline} de ingesta basado en códigos \acs{qr} y
-reconocimiento óptico tolerante a errores con una arquitectura modular
-en trece aplicaciones Django y una capa de servicios extensible
-mediante \dfnpl{plugin} intercambiables (autenticación, motores de
-\acs{ocr}, reconocedores de zonas).
+Escritos), un servicio distribuido \dfn{multi-tenant} que automatiza el
+ciclo completo de corrección, desde la ingesta de páginas escaneadas
+hasta el archivo definitivo del examen corregido. El sistema integra un
+\textit{pipeline} de reconocimiento basado en códigos \acs{qr} y
+\acs{ocr} tolerante a errores, sobre una arquitectura modular de trece
+aplicaciones Django con una capa de servicios extensible mediante
+\dfnpl{plugin} intercambiables (autenticación, motores de \acs{ocr},
+reconocedores de zonas).
 
-Desde la perspectiva del coordinador, el sistema cubre la creación de
-exámenes con sus modelos, la asignación declarativa de correctores, la
-captura de anotaciones (texto enriquecido, trazos a lápiz, audio) y la
-calificación por rúbrica o manual. Desde la perspectiva del gestor de
-la organización, ofrece configuración por \dfn{tenant}, importación y
-exportación a \acs{csv}, cierre automatizado de cursos académicos e
-internacionalización de notificaciones.
+El \dfn{backend} implementa un control de acceso \dfn{multi-tenant} con
+permisos contextuales por asignatura, un mecanismo de asignación
+inteligente de exámenes a estudiantes y calificación manual y por
+rúbrica. La seguridad de los datos sensibles se garantiza mediante
+cifrado a nivel de campo, \textit{hashing} robusto de contraseñas y
+marcas de agua dinámicas sobre los \acs{pdf} servidos a los alumnos,
+respaldado por un sistema de auditoría inmutable de todas las
+operaciones. El sistema ofrece además configuración por organización,
+que permite adaptar parámetros del reconocimiento, límites y permisos, y
+tareas de mantenimiento automatizadas con notificaciones por correo
+electrónico.
 
-La validación combina una cobertura de cai un 90\,\% en pruebas unitarias y
-de integración, pruebas de carga con Locust que verifican el
-\cref{rnf:concurrency} en operación normal, y comandos de demostración
-reproducibles del \textit{pipeline} crítico. La arquitectura queda
-preparada para evolucionar hacia despliegues de producción, integración
-con sistemas \acs{lms} y federación de identidad institucional.
+La validación del sistema combina una cobertura cercana al 90\,\% en
+pruebas unitarias y de integración, pruebas de carga con Locust que
+verifican el \cref{rnf:concurrency} en operación normal, y una
+evaluación empírica de la calidad del \acs{ocr} que justifica la
+elección del motor EasyOCR. La arquitectura queda preparada para
+evolucionar hacia despliegues en producción, integración con sistemas
+\acs{lms} y federación de identidad institucional.
 
 \palabrasclave{corrección digital de exámenes, multi-tenancy, OCR,
 Django, sistemas distribuidos, arquitectura backend}

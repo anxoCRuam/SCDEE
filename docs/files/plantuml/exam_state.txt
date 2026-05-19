@@ -1,0 +1,41 @@
+@startuml
+left to right direction
+hide empty description
+skinparam backgroundColor #FEFEFE
+skinparam state {
+  BackgroundColor #FFFBE6
+  BorderColor #444444
+  FontSize 11
+  AttributeFontSize 10
+  ArrowColor #444444
+}
+skinparam ArrowColor #444444
+title Ciclo de vida de una ExamInstance
+
+state ASSEMBLING
+state RECEIVED
+state QUEUED
+state PENDING_GRADING
+state GRADED
+state PUBLISHED
+state IN_REVIEW
+state PENDING_REVIEW
+state FINALIZED
+state ARCHIVED
+
+[*] --> ASSEMBLING
+ASSEMBLING --> RECEIVED        : páginas\ncompletas
+RECEIVED --> QUEUED            : encolar\nreconocimiento
+QUEUED --> PENDING_GRADING     : fin\nreconocimiento
+PENDING_GRADING --> GRADED     : corrección
+GRADED --> PUBLISHED           : has_issues\n= False
+PUBLISHED --> IN_REVIEW        : ventana\nabierta
+IN_REVIEW --> FINALIZED        : sin solicitud
+IN_REVIEW --> PENDING_REVIEW   : con solicitud
+PENDING_REVIEW --> FINALIZED   : resuelta
+FINALIZED --> ARCHIVED         : cambio\nde curso
+
+GRADED --> PENDING_GRADING     : <<retroceso>>
+PUBLISHED --> GRADED           : <<retroceso>>
+FINALIZED --> PENDING_REVIEW   : <<retroceso>>
+@enduml

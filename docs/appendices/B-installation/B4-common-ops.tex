@@ -1,4 +1,4 @@
-La \cref{table:install-common-ops} resume los comandos del % TODO cuadro en vez de tabla
+La \cref{table:install-common-ops} resume los comandos del
 \texttt{Makefile} para las operaciones habituales del ciclo de vida del
 sistema.
 
@@ -17,11 +17,18 @@ sistema.
     \texttt{make ps}             & Listar contenedores en ejecución \\
     \texttt{make logs}           & Ver \textit{logs} de todos los servicios \\
     \texttt{make logs-api}       & Ver \textit{logs} solo de la \acs{api} \\
+    \texttt{make logs-worker}    & Ver \textit{logs} del \textit{worker} de Celery \\
+    \texttt{make logs-beat}      & Ver \textit{logs} de Celery Beat \\
     \texttt{make migrate}        & Aplicar migraciones pendientes \\
     \texttt{make shell}          & \textit{Shell} interactiva de Django \\
     \texttt{make dbshell}        & \textit{Shell} interactiva de PostgreSQL \\
     \texttt{make check}          & Ejecutar \textit{lint} + \textit{typecheck} + \textit{tests} \\
+    \texttt{make test}           & Ejecutar la \textit{suite} de pruebas \\
+    \texttt{make test-cov}       & Ejecutar pruebas con informe de cobertura \\
     \texttt{make sftp-watcher}   & Lanzar el \textit{watcher} de ingesta \\
+    \texttt{make demo-qr}        & Ejecutar la demo del \textit{pipeline} QR \\
+    \texttt{make demo-watermark} & Ejecutar la demo de marca de agua \\
+    \texttt{make reset}          & Reiniciar el proyecto desde cero \\
     \hline
   \end{tabular}
 \end{table}

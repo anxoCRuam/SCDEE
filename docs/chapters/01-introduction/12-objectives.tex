@@ -3,14 +3,14 @@ plataformas existentes, este \acs{tfg} persigue los siguientes objetivos:
 
 \begin{objetive}
   \item Diseñar e implementar el \dfn{backend} completo del SCDEE como un
-        sistema distribuido \dfn{multitenant}.
+        sistema distribuido \dfn{multi-tenant}.
         \label{OBJ:BACKEND-MULTITENANT}
-  \item Diseñar el \dfn{backend} con una arquitectura modular y extensible,
+  \item Dotar al \dfn{backend} de una arquitectura modular y extensible,
         sustentada en una clara separación de responsabilidades y en
         interfaces de \dfnpl{plugin} intercambiables.
         \label{OBJ:MODULAR-ARCH}
   \item Construir un \textit{pipeline} de ingesta y reconocimiento de
-        páginas escaneadas que combine identificación por código QR,
+        páginas escaneadas que combine identificación por código \acs{qr},
         \acs{ocr} y un \textit{matching} robusto a errores de
         reconocimiento.
         \label{OBJ:OCR-PIPELINE}
@@ -21,10 +21,15 @@ plataformas existentes, este \acs{tfg} persigue los siguientes objetivos:
         los exámenes corregidos a los alumnos durante la ventana de
         revisión.
         \label{OBJ:GRADING-CYCLE}
+  \item Ofrecer un sistema de configuración dinámica por organización y
+        tareas de mantenimiento automatizadas, permitiendo a cada
+        \dfn{tenant} adaptar el sistema a sus necesidades sin intervención
+        del administrador.
+        \label{OBJ:CONFIG-MAINTENANCE}
   \item Garantizar el cumplimiento de los requisitos de seguridad y
-        protección de datos: cifrado en reposo
-        de datos sensibles, auditoría inmutable, \textit{soft delete} y
-        mecanismos de protección frente a la fuga de exámenes.
+        protección de datos: cifrado en reposo de datos sensibles,
+        auditoría inmutable, \textit{soft delete} y mecanismos de
+        protección frente a la fuga de exámenes.
         \label{OBJ:SECURITY-RGPD}
   \item Generar una documentación OpenAPI completa y autoexplicativa que
         actúe como contrato formal entre \dfn{backend} y \dfn{frontend}.

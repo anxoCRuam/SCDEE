@@ -1,9 +1,269 @@
-% TODO — chapters/05-implementation/53-critical.tex
-% Sección reservada para describir las decisiones de implementación
-% no triviales con código de soporte. Pendiente:
-%   - Matching del alumno (Levenshtein, tabla de confusiones OCR,
-%     descifrado del DNI almacenado): el autor ha indicado que va a
-%     hacer un rework del componente; redactar cuando esté estable.
-%   - Posibles piezas adicionales a definir cuando lleguemos.
+A continuación se describen las decisiones de implementación más
+significativas de cada subsistema, aquellas que materializan los
+requisitos del \cref{CAP:ANALYSIS} y el diseño del \cref{CAP:DESIGN}
+con código no trivial.
 
-[Sección pendiente de redactar.]
+
+\subsection{Aislamiento multi-tenant (\texttt{core})}
+\label{SS:IMPL-MULTITENANT}
+
+El mecanismo de filtrado automático por organización se implementa
+mediante dos \textit{managers} de Django definidos en
+\texttt{apps/core/models/managers.py}. El primero, \texttt{TenantManager},
+sobreescribe la función \texttt{get\_queryset()} para inyectar un filtro por
+\texttt{organization\_id} en cada consulta, leyendo el identificador
+de la organización de una variable de hilo que se establece durante
+la autenticación. El \textit{manager} por defecto de todo modelo de
+negocio es \texttt{TenantManager}; el \textit{manager} secundario
+\texttt{UnfilteredManager} se reserva para operaciones del sistema
+—tareas asíncronas de Celery, comandos de gestión y consultas del
+superadministrador— en las que no existe un contexto de petición.
+El \cref{code:tenant-managers} muestra las dos clases completas.
+
+\PythonCode[code:tenant-managers]%
+           {Managers multi-tenant}%
+           {Managers \texttt{TenantManager} y \texttt{UnfilteredManager}
+            que implementan el aislamiento automático por organización.
+            El \textit{manager} por defecto filtra cada consulta por el
+            \texttt{organization\_id} del usuario autenticado.}%
+           {tenant_managers.py}{1}{24}{1}
+
+El flujo completo desde el establecimiento del contexto en el login
+hasta su limpieza al final de la petición se diagrama en la
+\cref{fig:seq-auth} (\cref{AP:SEQUENCE}). Esta arquitectura hace
+estructuralmente imposible el olvido de un filtro de organización en
+una consulta manual, eliminando una fuente común de fugas de datos
+entre \dfnpl{tenant}.
+
+
+\subsection{Autenticación intercambiable y cifrado (\texttt{accounts})}
+\label{SS:IMPL-AUTH}
+
+El sistema de autenticación se articula en torno a la interfaz
+abstracta \texttt{BaseAuthPlugin} (\cref{code:base-auth-plugin}), que
+define el contrato que debe cumplir cualquier mecanismo de
+autenticación. El sistema lee la clase concreta a instanciar de
+\texttt{AUTH\_PLUGIN\_CLASS} en \textit{settings} y todas las vistas
+trabajan exclusivamente contra esta interfaz, por lo que añadir un
+nuevo mecanismo —por ejemplo, un \dfn{plugin} \acs{sso} de
+\acs{saml}— es un cambio de configuración, no de código.
+
+\PythonCode[code:base-auth-plugin]%
+           {Interfaz abstracta del plugin de autenticación}%
+           {Interfaz \texttt{BaseAuthPlugin} (patrón Strategy) y
+            \textit{dataclasses} de \textit{tokens}: garantizan un
+            \textit{payload} común para que el \textit{middleware} y
+            el sistema de permisos operen igual independientemente del
+            mecanismo de autenticación activo.}%
+           {base_auth_plugin.py}{1}{49}{1}
+
+En la versión~1.0 se implementa \texttt{JWTAuthPlugin}, que utiliza
+PyJWT con algoritmo HS256 para emitir \textit{access tokens} de corta
+duración (15\,min por defecto) y \textit{refresh tokens} rotativos de
+larga duración (7\,días). El cierre de sesión y la rotación de
+\textit{tokens} se implementan mediante una lista negra en Redis con
+\acs{ttl} igual al tiempo restante de expiración del \textit{token}.
+La invalidación masiva de todos los \textit{tokens} de un usuario
+(al restablecer su contraseña) se consigue incrementando un contador
+de generación atómico en Redis; los \textit{tokens} emitidos con un
+contador inferior se rechazan en la validación.
+
+El \acs{dni} se cifra con \acs{aes}-256-\acs{gcm} antes de almacenarlo
+en la base de datos. Cada registro utiliza un \textit{nonce} aleatorio
+de 12\,bytes generado con \texttt{os.urandom}, lo que garantiza que
+dos cifrados del mismo \acs{dni} produzcan textos cifrados diferentes.
+La clave maestra se lee de la variable de entorno
+\texttt{ENCRYPTION\_MASTER\_KEY} y nunca se almacena en la base de
+datos ni en el código. El descifrado solo se ejecuta al servir el
+perfil del propio usuario o al exportar usuarios por parte del
+\dfn{gestor}.
+
+
+\subsection{Transición transaccional de curso (\texttt{courses})}
+
+La creación de un nuevo curso académico dispara una transición atómica
+que archiva el curso anterior y todos sus datos asociados. La
+operación completa se ejecuta dentro de un bloque
+\texttt{transaction.atomic()} y utiliza \texttt{select\_for\_update()}
+sobre el curso activo para prevenir condiciones de carrera. La
+transición desactiva en cascada los usuarios no gestores, las
+membresías de asignatura, las notificaciones y las instancias de
+examen no finalizadas. Cada paso se registra en el \textit{log} de
+auditoría con el recuento de entidades afectadas.
+
+
+\subsection{Permisos contextuales (\texttt{subjects})}
+
+El sistema de permisos se implementa en tres capas: el \textit{flag}
+\texttt{is\_staff} del modelo \texttt{User}, que otorga acceso pleno
+a todas las asignaturas de la organización; el campo
+\texttt{permission\_overrides} (JSON) de \texttt{SubjectMembership},
+que almacena anulaciones por miembro; y las reglas de asignación
+(\texttt{AssignmentRule}), que restringen el acceso a
+\dfnpl{corrector} concretos. La resolución de permisos efectivos
+combina los valores por defecto del rol, la configuración de la
+organización y las anulaciones individuales, con la restricción de que un
+\dfn{coordinador} no puede delegar un permiso que él mismo no posee.
+La verificación de permisos se encapsula en clases \texttt{BasePermission}
+de \acs{drf} que consultan
+la membresía del usuario en la asignatura correspondiente.
+
+
+\subsection{Generación del \acs{pdf} instrumentado (\texttt{exams})}
+
+El \acs{pdf} instrumentado se genera bajo demanda combinando tres
+bibliotecas: \texttt{pypdf} para leer el \acs{pdf} en blanco y
+escribir el resultado, \texttt{reportlab} para crear una capa
+transparente con los códigos \acs{qr}, y \texttt{qrcode} para generar
+la imagen de cada código. Cada \acs{qr} codifica un objeto \acs{json}
+con \texttt{org\_id}, \texttt{exam\_id}, \texttt{model\_id},
+\texttt{page\_number} y un \textit{checksum} SHA-256 truncado a
+8\,caracteres para detección de errores.
+
+\subsection{Creación de un examen (\texttt{exams})}
+
+Para crear un examen, se ejecutan una serie de pasos; dentro de una
+asignatura, el coordinador o usuario con permiso, crea y define un
+modelo de examen con su configuración de zonas, asociadas a cualquier
+atributo vinculado de alguna manera al examen. Al mismo tiempo, tambien
+se debe crear un "problema", que sirve de contenedor de calificación,
+anotaciones, rúbricas, correctores, etc. Se pueden definir más problemas
+para un manejo más granular de la corrección.
+
+\subsection{Importación y exportación (\texttt{accounts}, \texttt{subjects}, \texttt{grading})}
+
+El sistema maneja la entrada de archivos json y csv con los datos de usuarios o asignaturas
+para su importación, creándose objetos o también reactivándose en caso de usuarios. Esta
+funcionalidad es complementaria a la transición de curso, tras el archivado, los clientes
+podrán crear masivamente los recursos del siguiente año académico. La exportación de las
+asignaturas o usuarios es completamente compatible con la importación,
+siendo este el único caso donde se devuelven dnis desencriptados y por eso
+solo puede acceder el manager. Por último, la exportación de grading maximiza la compatibilidad
+permitiendo configurar el formato (que columnas, con que nombres y en que orden) de exportado
+de las notas de un examen, siendo así fácilmente integrable con SIGMA.
+
+\subsection{Máquina de estados con control de concurrencia (\texttt{instances})}
+
+Cada transición de estado de una \texttt{ExamInstance} se ejecuta
+dentro de un bloque \texttt{transaction.atomic()} con
+\texttt{select\_for\_update()} sobre la fila de la instancia. Esto
+garantiza que dos transiciones concurrentes sobre la misma instancia
+no puedan ambas tener éxito cuando solo una es legal, en particular
+para la transición a \texttt{PUBLISHED}, que requiere que la
+instancia no tenga incidencias activas (\texttt{has\_issues=False}).
+La tabla de transiciones legales se define centralizadamente en el
+diccionario \texttt{VALID\_TRANSITIONS}, lo que permite verificarlas
+en un único punto antes de aplicarlas.
+
+
+\subsection{Algoritmo húngaro y scoring \acs{ocr}-aware (\texttt{ingestion})}
+\label{SS:IMPL-MATCHING}
+
+La implementación del matching V2 descrito en
+\cref{SS:DES-INGEST-ASSEMBLY} se reparte entre tres módulos sin
+dependencias circulares: \texttt{scoring.py} (puntuaciones por
+atributo, sin Django), \texttt{matching.py} (algoritmo de asignación,
+sin Django) y \texttt{assembler.py} (orquestación con Django).
+Mantener los dos primeros como código puro permite que el evaluador
+\textit{offline} de calidad del \textit{matching}
+(\cref{SEC:TEST-OCR-QUALITY}) reutilice exactamente la misma ruta de
+ejecución que el sistema en producción.
+
+\paragraph{Scoring tolerante a errores OCR.}
+La similaridad entre los datos extraídos de un lote y los de un
+alumno convocado se calcula sobre una forma canónica que colapsa las
+confusiones de \acs{ocr} más frecuentes en escritura manuscrita.
+Cada clase de equivalencia agrupa
+caracteres que el motor confunde a menudo (los redondeados
+\texttt{O/0/Q}, los trazos verticales \texttt{I/1/l/L/|}, etc.) y
+los proyecta al primer carácter de la clase, de modo que sustituirlos
+no penaliza en la distancia de Levenshtein subyacente.
+
+\PythonCode[code:matching]%
+           {Asignación lotes--alumnos con el algoritmo húngaro}%
+           {Función \texttt{assign\_lots\_to\_students}: construye la
+            matriz de costes, invoca al algoritmo húngaro y devuelve
+            la asignación 1-a-1 globalmente óptima. Las parejas cuya
+            puntuación no alcanza el umbral se devuelven como no
+            asignadas para que el ensamblador cree la incidencia
+            \texttt{LOW\_MATCH\_CONFIDENCE}.}%
+           {matching_hungarian.py}{1}{49}{1}
+
+La puntuación por atributo se calcula con
+\texttt{similarity\_ocr\_aware} entre el valor real y el mejor de los
+valores \acs{ocr} disponibles para ese atributo en el lote (cada
+página puede aportar evidencia independiente). Las puntuaciones de
+los tres atributos, nombre, \acs{nia} y \acs{dni}, se combinan con
+pesos \(0{,}20 / 0{,}50 / 0{,}30\), donde \acs{nia} pesa más por ser
+el campo más corto, puramente numérico y sin diacríticos, y por
+tanto el más fiable bajo \acs{ocr}.
+
+\paragraph{Asignación globalmente óptima.}
+Con la matriz de puntuaciones \(P_{ij}\) construida lote a lote
+contra cada alumno convocado, la asignación se resuelve mediante el
+algoritmo
+\texttt{scipy.optimize.linear\_sum\_assignment}, que minimiza coste y
+por tanto requiere negar las puntuaciones (\cref{code:matching}). La
+matriz se completa a forma cuadrada con ceros como \textit{padding}
+para que la implementación admita casos rectangulares, es decir, más lotes que
+alumnos o viceversa; las celdas de \textit{padding} sólo se eligen
+cuando no queda otra opción, ya que las celdas reales tienen coste
+negativo.
+
+El detalle de la persistencia (disparo por saturación o
+\textit{timeout}, creación de \texttt{ExamInstance} y propagación de
+incidencias \texttt{MISSING\_PAGE}, \texttt{STUDENT\_NOT\_IDENTIFIED}
+y \texttt{LOW\_MATCH\_CONFIDENCE}) se diagrama en la
+\cref{fig:seq-multipage-ingest} y el flujo completo de las tres
+subtareas en la \cref{fig:ocr-flow-full} (\cref{AP:SEQUENCE}).
+
+
+\subsection{Concurrencia optimista en calificaciones (\texttt{grading})}
+
+La modificación de una calificación sigue un protocolo de
+concurrencia optimista: el \dfn{corrector} envía junto a la nueva
+nota el valor \texttt{old\_score} que él conoce. El servicio
+\texttt{grade\_problem} compara este valor con el almacenado en base
+de datos bajo un bloqueo \texttt{select\_for\_update()}. Si no
+coinciden, la operación se rechaza con \texttt{HTTP}\,409 y se
+devuelve la calificación actual para que el corrector pueda
+sincronizarse. Si coinciden, se aplica la nueva nota y se recalcula
+la nota total de la instancia. Así se garantiza consistencia de datos
+para casos de correctores que califican el mismo problema.
+
+
+\subsection{Internacionalización de notificaciones (\texttt{notifications})}
+
+Las plantillas de correo electrónico utilizan los mecanismos de
+internacionalización de Django (\texttt{\%\ trans\ \%} y
+\texttt{\%\ blocktrans\ \%}) con ficheros \texttt{.po} compilados a
+\texttt{.mo} para cada idioma soportado. El idioma del destinatario se
+resuelve en tiempo de envío a partir de la configuración de la
+organización (\texttt{OrganizationConfig.default\_language}),
+activándolo temporalmente mediante \texttt{translation.override()}
+durante el renderizado de la plantilla. Esto garantiza que cada
+usuario recibe los correos en el idioma configurado para su
+organización.
+
+
+\subsection{Marca de agua dinámica y cifrado de \acs{pdf} (\texttt{instances})}
+
+Las páginas servidas a los alumnos durante la revisión se procesan en
+tiempo de petición: el servicio \texttt{compose\_instance\_pdf}
+descarga cada página de MinIO, aplica una marca de agua con el
+nombre, \acs{nia} y fecha del alumno mediante \texttt{Pillow}, y
+compone el \acs{pdf} resultante. Si el examen no permite la descarga,
+el \acs{pdf} se cifra con \acs{aes}-256-\acs{gcm} usando una clave
+derivada del identificador del usuario, y se sirve con cabeceras
+\acs{http} anti-caché y \texttt{Content-Disposition: inline}.
+El flujo completo de revisión, incluyendo esta composición bajo demanda,
+se diagrama en la \cref{fig:seq-review} (\cref{AP:SEQUENCE}).
+
+
+\subsection{Inmutabilidad de la auditoría (\texttt{audit})}
+
+El \textit{log} de auditoría se protege en dos capas: el modelo
+\texttt{AuditLog} sobreescribe \texttt{save()} para rechazar cualquier
+intento de modificación (solo permite \texttt{INSERT}) y un
+\textit{trigger} \texttt{BEFORE UPDATE OR DELETE} en PostgreSQL
+impide la modificación incluso desde \acs{sql} directo.

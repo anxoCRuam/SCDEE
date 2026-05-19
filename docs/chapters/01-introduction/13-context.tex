@@ -1,10 +1,10 @@
 El SCDEE se ha concebido como un sistema completo con dos extremos
 diferenciados pero acoplados. El \dfn{backend}, objeto de este trabajo,
-concentra la lógica de negocio, la persistencia de datos, los procesos
+gestiona la lógica de negocio, la persistencia de datos, los procesos
 asíncronos de reconocimiento y notificación, la integración con el
-almacenamiento de objetos y la gestión de la seguridad. El \dfn{frontend},
-objeto del \acs{tfg} de Alejandro Soler Sichling, concentra la experiencia
-de usuario tanto del corrector como del alumnado: visualización de páginas
+almacenamiento de objetos y la seguridad. El \dfn{frontend}, objeto del
+\acs{tfg} de Alejandro Soler Sichling, se centra en la experiencia de
+usuario del corrector y del alumnado: visualización de páginas
 escaneadas, anotación interactiva, gestión de calificaciones y consulta de
 exámenes corregidos.
 
@@ -12,8 +12,6 @@ El contrato entre ambos extremos es la \ac{api} \ac{rest} versionada bajo
 el prefijo \texttt{/api/v1/}, cuya especificación OpenAPI 3.0 se genera
 automáticamente a partir del código del \dfn{backend} y constituye la
 documentación de referencia para el desarrollo del \dfn{frontend}
-(\cref{AP:OPENAPI}). Las decisiones técnicas que cruzan ambos
-extremos se han discutido conjuntamente durante todo el desarrollo, asegurando una
-arquitectura coherente. A lo largo de la memoria, cuando un punto de diseño
-afecte directamente a la interfaz de usuario o a su tratamiento en el
-\dfn{frontend}, se hará referencia explícita al \acs{tfg} paralelo.
+(\cref{AP:OPENAPI}). Las decisiones técnicas que afectan a ambos extremos
+se han discutido conjuntamente durante todo el desarrollo, asegurando una
+arquitectura coherente.

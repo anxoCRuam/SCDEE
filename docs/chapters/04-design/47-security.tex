@@ -1,42 +1,24 @@
-El backend implementa varias medidas de seguridad complementarias,
-dirigidas a proteger los datos personales en reposo y en tránsito y a
-registrar las operaciones realizadas.
+El \dfn{backend} implementa medidas de seguridad en tres niveles:
 
-\begin{itemize}
+\begin{description}
+  \item[Protección de datos en reposo] El \acs{dni} se cifra con
+  \acs{aes}-256-\acs{gcm} con \textit{nonce} único por registro y clave
+  maestra externa. Las contraseñas se almacenan como \textit{hash} Argon2
+  con sal, descartando el texto plano inmediatamente.
 
-  \item \textbf{Cifrado de datos personales en reposo.} El \acs{dni} de
-  cada usuario se cifra con \acs{aes}-256-\acs{gcm} antes de almacenarse
-  en la base de datos, con \textit{nonce} único por registro. La clave
-  maestra se inyecta como variable de entorno y nunca se incorpora al
-  repositorio.
+  \item[Protección de datos en tránsito] Las páginas servidas a alumnos
+  llevan una marca de agua dinámica con nombre, \acs{nia} y fecha. Si la
+  descarga no está permitida, el \acs{pdf} se cifra con una clave
+  derivada de la sesión del usuario y se sirve con cabeceras
+  \acs{http} anti-caché y \acs{url} temporales de corta expiración.
 
-  \item \textbf{\textit{Hash} de contraseñas.} Las contraseñas de usuario
-  se almacenan como \textit{hash} con sal mediante Argon2; la contraseña
-  en texto plano se descarta inmediatamente tras el cálculo.
+  \item[Auditoría inmutable] Cada operación de negocio con impacto en
+  datos genera un registro en una tabla \textit{append-only} de
+  PostgreSQL, protegida contra modificaciones mediante un disparador SQL.
+  El registro incluye actor, organización, dirección \acs{ip}, tipo de
+  evento y datos relevantes.
+\end{description}
 
-  \item \textbf{Autenticación y autorización.} La autenticación se
-  delega a un \dfn{plugin} intercambiable (\cref{SS:DES-PLUGINS}), con
-  \acs{jwt} como implementación activa. La autorización se aplica al
-  contexto \dfn{multitenant} y según los permisos del rol y la
-  pertenencia del usuario a la asignatura.
-
-  \item \textbf{Protección anti-descarga de los recursos servidos a
-  alumnos.} El sistema combina cuatro mecanismos como defensa en
-  profundidad: \acsp{uri} temporales con expiración corta (anotaciones),
-  marca de agua dinámica con datos identificativos del alumno y marca
-  temporal (páginas de examen), cifrado en tránsito con clave por sesión
-  (examen), y cabeceras \acs{http} anti-caché.
-
-  \item \textbf{Log de auditoría inmutable.} Toda operación de negocio
-  con impacto en datos genera un registro en una tabla
-  \textit{append-only} que captura quién (actor, \acs{ip}), qué (tipo
-  de evento), sobre qué entidad y cuándo. El \textit{manager} del modelo
-  bloquea explícitamente las operaciones de actualización y borrado,
-  garantizando la inmutabilidad del log.
-
-  \item \textbf{Retención y borrado periódico.} Los exámenes
-  pertenecientes a cursos archivados se eliminan tras un periodo
-  configurable por organización mediante una tarea periódica de Celery,
-  alineada con la política de mantenimiento operativo.
-
-\end{itemize}
+El cumplimiento del \acs{rgpd} se aborda mediante la combinación de
+cifrado en reposo, \textit{soft-delete} de usuarios, auditoría de accesos
+y almacenamiento seguro de credenciales.

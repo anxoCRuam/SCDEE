@@ -1,13 +1,12 @@
-Este capítulo describe el diseño del backend del SCDEE en ocho bloques:
-la arquitectura general (\cref{SEC:DES-OVERVIEW}), el modelo de datos y
-el aislamiento multi-tenant (\cref{SEC:DES-DATA}), la capa de servicios
-y los \dfnpl{plugin} intercambiables (\cref{SEC:DES-LAYERS}), el
-\textit{pipeline} de ingesta y reconocimiento (\cref{SEC:DES-INGEST}),
-el ciclo de vida de las instancias de examen
-(\cref{SEC:DES-LIFECYCLE}), las operaciones del sistema desde la
-perspectiva del coordinador y el gestor (\cref{SEC:DES-OPS}), las
-medidas de seguridad y cumplimiento (\cref{SEC:DES-SECURITY}) y el
-contrato de la \acs{api} con el \dfn{frontend} (\cref{SEC:DES-API}).
-Las decisiones de diseño se sustentan en los requisitos del
-\cref{CAP:ANALYSIS} y en los patrones arquitectónicos discutidos en el
-estado del arte.
+Este capítulo presenta el diseño del \dfn{backend} del SCDEE, estructurado
+en siete bloques. La \cref{SEC:DES-OVERVIEW} describe la arquitectura
+general basada en contenedores y el despliegue. La \cref{SEC:DES-DATA}
+desarrolla el modelo de datos, el mecanismo de aislamiento
+\dfn{multi-tenant} y el sistema de permisos contextuales. La
+\cref{SEC:DES-LAYERS} detalla la arquitectura por capas y los
+\dfnpl{plugin} intercambiables. El \cref{SEC:DES-INGEST} aborda el
+\textit{pipeline} de ingesta y reconocimiento. La
+\cref{SEC:DES-LIFECYCLE} describe la máquina de estados de las
+instancias. La \cref{SEC:DES-SECURITY} resume las medidas de seguridad y
+la \cref{SEC:DES-API} establece el contrato de integración con el
+\dfn{frontend}.

@@ -23,5 +23,7 @@ repos:
     rev: v0.8.6
     hooks:
       - id: ruff                         # Linter
-        args: [--fix]
+        args: ["--fix"]
+        exclude: ^docs/codes/
       - id: ruff-format                  # Formatter
+        exclude: ^docs/codes/

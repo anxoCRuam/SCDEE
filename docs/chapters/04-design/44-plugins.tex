@@ -1,0 +1,30 @@
+Tres componentes del \dfn{backend} siguen el patrón \textit{Strategy} de
+Gamma \textit{et~al.} \cite{gof1994designpatterns}, permitiendo sustituir
+su implementación sin modificar el código que los consume:
+
+\begin{description}
+  \item[Autenticación] La interfaz \texttt{BaseAuthPlugin} define el
+  contrato que debe cumplir cualquier mecanismo de autenticación. En la
+  versión 1.0 se implementa \texttt{JWTAuthPlugin}, que emite pares de
+  \textit{tokens} \acs{jwt} (acceso de corta duración y refresco rotativo)
+  con payload común. La arquitectura admite incorporar \acs{sso}
+  institucional (\acs{saml} y \acs{oidc}) sin modificar el
+  \dfn{frontend} ni la lógica de negocio.
+
+  \item[Motores de \acs{ocr}] La interfaz \texttt{BaseOCREngine} define el
+  contrato para cualquier motor de reconocimiento óptico. El sistema
+  incluye dos \dfnpl{plugin}: \texttt{EasyOCREngine} (por defecto, basado
+  en redes neuronales con soporte nativo de más de ochenta idiomas) y
+  \texttt{TesseractEngine} (motor canónico de código abierto basado en
+  LSTM). La organización selecciona el motor activo desde su
+  configuración.
+
+  \item[Reconocedores de zonas] La interfaz \texttt{BaseRecognizer}
+  define el contrato para cualquier tipo de zona de reconocimiento. El
+  \textit{dispatcher} invoca el reconocedor adecuado según el tipo de
+  zona sin conocer su implementación concreta.
+\end{description}
+
+Esta arquitectura facilitó la incorporación incremental de funcionalidad
+durante el desarrollo y prepara al sistema para integrar futuras
+tecnologías sin reorganizar su núcleo.

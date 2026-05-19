@@ -1,24 +1,47 @@
 La medición de cobertura mencionada en \cref{SEC:TEST-COVERAGE} se
-desglosa por aplicación Django en la \cref{table:cdetail-coverage}. % TODO cuadro en vez de tabla
+desglosa por aplicación Django en la \cref{table:cdetail-coverage}.
 
 \begin{table}[Cobertura del código por aplicación]%
             {table:cdetail-coverage}%
             {Cobertura del código de aplicación por \textit{app} Django,
-             excluyendo tests y migraciones.}
+             excluyendo pruebas y migraciones.}
   \small
-  \renewcommand{\arraystretch}{1.3} % TODO fix percentages
+  \renewcommand{\arraystretch}{1.3}
   \begin{tabular}{l r r r}
     \hline
     \textbf{App} & \textbf{Sentencias} & \textbf{No cubiertas} & \textbf{Cobertura} \\
     \hline
-    app1        & lines & uncovered & coverage\,\% \\
+    \texttt{accounts}      & 1\,192 & 114  & 90{,}4\,\% \\
+    \texttt{annotations}   & 422   & 136  & 67{,}8\,\% \\
+    \texttt{audit}         & 151   & 8    & 94{,}7\,\% \\
+    \texttt{core}          & 372   & 73   & 80{,}4\,\% \\
+    \texttt{courses}       & 452   & 26   & 94{,}2\,\% \\
+    \texttt{exams}         & 1\,412 & 89   & 93{,}7\,\% \\
+    \texttt{grading}       & 259   & 30   & 88{,}4\,\% \\
+    \texttt{ingestion}     & 553   & 326  & 41{,}0\,\% \\
+    \texttt{instances}     & 1\,056 & 140  & 86{,}7\,\% \\
+    \texttt{notifications} & 316   & 39   & 87{,}7\,\% \\
+    \texttt{organizations} & 355   & 4    & 98{,}9\,\% \\
+    \texttt{reviews}       & 365   & 39   & 89{,}3\,\% \\
+    \texttt{subjects}      & 691   & 122  & 82{,}3\,\% \\
     \hline
-    \textbf{Total}  & \textbf{1} & \textbf{1} & \textbf{88\,\%} \\
+    \textbf{Total}  & \textbf{7\,596} & \textbf{1\,146} & \textbf{84{,}9\,\%} \\
     \hline
   \end{tabular}
 \end{table}
 
-La columna ``Cobertura'' refleja el porcentaje de sentencias del código
-de aplicación efectivamente ejecutadas por las pruebas. La cifra agregada del
-informe que incluye estos archivos asciende al 88\,\%
-(\cref{SEC:TEST-COVERAGE}).
+La columna \textit{Cobertura} refleja el porcentaje de sentencias del
+código de aplicación efectivamente ejecutadas por las pruebas unitarias
+y de integración. La cifra agregada del informe completo de
+\texttt{pytest-cov}, que incluye además ficheros de configuración,
+migraciones y comandos de gestión, asciende al 88\,\% mencionado en
+\cref{SEC:TEST-COVERAGE}.
+
+Las aplicaciones con menor cobertura (\texttt{ingestion} y
+\texttt{annotations}) concentran la mayor parte del código no cubierto
+en los servicios de reconocimiento y en los flujos de anotaciones de
+audio, cuya verificación completa requiere un entorno con MinIO y
+Celery operativos. La cobertura del núcleo de negocio
+(\texttt{accounts}, \texttt{exams}, \texttt{grading},
+\texttt{instances}, \texttt{courses}) supera el 86\,\% en todos los
+casos.

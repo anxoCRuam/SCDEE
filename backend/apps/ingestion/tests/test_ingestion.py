@@ -170,47 +170,103 @@ class TestCheckboxRecognizer:
 
 
 class TestStudentMatching:
-    """Test matching service logic."""
+    """Tests for the scoring primitives used by the v2 matcher.
 
-    def test_ocr_tolerant_match_exact(self):
-        from apps.ingestion.services.matching import _ocr_tolerant_match
+    The legacy private helpers (``_ocr_tolerant_match``,
+    ``_name_similarity``, ``_levenshtein_distance``) were replaced by a
+    single OCR-aware similarity (``similarity_ocr_aware``) plus a
+    ``ScoringStrategy`` that combines per-attribute scores. These tests
+    target the new public API in ``apps.ingestion.services.scoring``.
+    """
 
-        assert _ocr_tolerant_match("12345678X", "12345678X")
+    def test_similarity_exact_match(self):
+        from apps.ingestion.services.scoring import similarity_ocr_aware
 
-    def test_ocr_tolerant_match_with_confusion(self):
-        from apps.ingestion.services.matching import _ocr_tolerant_match
+        assert similarity_ocr_aware("12345678X", "12345678X") == 1.0
 
-        # 0 vs O confusion.
-        assert _ocr_tolerant_match("1234567OX", "12345670X")
+    def test_similarity_handles_zero_o_confusion(self):
+        """'O' vs '0' is folded into one canonical character.
 
-    def test_ocr_tolerant_match_too_many_errors(self):
-        from apps.ingestion.services.matching import _ocr_tolerant_match
+        EasyOCR routinely confuses these in handwriting, so the
+        substitution is treated as zero-cost.
+        """
+        from apps.ingestion.services.scoring import similarity_ocr_aware
 
-        assert not _ocr_tolerant_match("ABCDEFGH", "12345678")
+        assert similarity_ocr_aware("1234567OX", "12345670X") == 1.0
 
-    def test_name_similarity_exact(self):
-        from apps.ingestion.services.matching import _name_similarity
+    def test_similarity_low_for_distinct_strings(self):
+        from apps.ingestion.services.scoring import similarity_ocr_aware
 
-        assert _name_similarity("Juan García", "Juan García") == 1.0
+        # Neither string folds into the other under any OCR confusion class.
+        assert similarity_ocr_aware("ABCDEFGH", "12345678") < 0.3
 
-    def test_name_similarity_close(self):
-        from apps.ingestion.services.matching import _name_similarity
+    def test_similarity_name_close(self):
+        """'l' vs 'i' is folded into one canonical character.
 
-        score = _name_similarity("Juan Garcla", "Juan García")
-        assert score > 0.8
+        Both are in the I1lL| confusion class, so 'Garcla' and 'Garcia'
+        collapse to identical canonical forms.
+        """
+        from apps.ingestion.services.scoring import similarity_ocr_aware
 
-    def test_name_similarity_different(self):
-        from apps.ingestion.services.matching import _name_similarity
+        assert similarity_ocr_aware("Juan Garcla", "Juan Garcia") == 1.0
 
-        score = _name_similarity("Pedro López", "María Sánchez")
+    def test_similarity_name_different(self):
+        from apps.ingestion.services.scoring import similarity_ocr_aware
+
+        score = similarity_ocr_aware("Pedro López", "María Sánchez")
         assert score < 0.5
 
-    def test_levenshtein_distance(self):
-        from apps.ingestion.services.matching import _levenshtein_distance
+    def test_score_lot_perfect_triplet(self):
+        """The default strategy returns 1.0 for an exact (name, NIA, DNI)."""
+        from apps.ingestion.services.scoring import DEFAULT_STRATEGY
 
-        assert _levenshtein_distance("kitten", "sitting") == 3
-        assert _levenshtein_distance("", "abc") == 3
-        assert _levenshtein_distance("abc", "abc") == 0
+        score = DEFAULT_STRATEGY.score_lot(
+            ocr_values={
+                "name": ["Juan Garcia"],
+                "nia": ["123456"],
+                "dni": ["11111111H"],
+            },
+            true_name="Juan Garcia",
+            true_nia="123456",
+            true_dni="11111111H",
+        )
+        assert score == 1.0
+
+    def test_score_lot_unrelated_triplet(self):
+        from apps.ingestion.services.scoring import DEFAULT_STRATEGY
+
+        score = DEFAULT_STRATEGY.score_lot(
+            ocr_values={
+                "name": ["Pedro Lopez"],
+                "nia": ["999999"],
+                "dni": ["99999999Z"],
+            },
+            true_name="Juan Garcia",
+            true_nia="123456",
+            true_dni="11111111H",
+        )
+        assert score < 0.3
+
+    def test_score_lot_picks_best_across_multi_page_values(self):
+        """Multi-page lots have several OCR values per attribute.
+
+        The strategy takes the maximum similarity per attribute, so the
+        best page-level evidence wins. A noisy first read does not
+        sabotage a clean second read.
+        """
+        from apps.ingestion.services.scoring import DEFAULT_STRATEGY
+
+        score = DEFAULT_STRATEGY.score_lot(
+            ocr_values={
+                "name": ["completely wrong", "Juan Garcia"],
+                "nia": ["123456"],
+                "dni": ["11111111H"],
+            },
+            true_name="Juan Garcia",
+            true_nia="123456",
+            true_dni="11111111H",
+        )
+        assert score == 1.0
 
 
 # ── Assembly tests ───────────────────────────────────────────

@@ -1,0 +1,54 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FEFEFE
+title Pipeline de ingesta y reconocimiento del SCDEE
+
+start
+
+:Watcher detecta fichero\nen carpeta SFTP;
+:Encola ingest_page_task\nen Celery (cola recognition);
+
+partition "ingest_page_task (normalización)" {
+  :Valida tamaño del fichero;
+  if (¿Es PDF?) then (sí)
+    :Divide cada página\na PNG (200 DPI);
+  else (imagen)
+    :Convierte a PNG\nsi no lo es ya;
+  endif
+  :Sube cada página a MinIO;
+  :Crea ExamPage\n(PENDING_RECOGNITION);
+  :Encola recognize_page_task\npor cada página;
+}
+
+partition "recognize_page_task (reconocimiento)" {
+  :Descarga imagen de MinIO;
+  :Ejecuta QRRecognizer\nsobre la imagen completa;
+  if (¿QR válido?) then (sí)
+    :Extrae org_id, exam_id,\nmodel_id, page_number;
+    :Resuelve PageProfile\ndel modelo y página;
+    :Para cada zona no QR\ndel PageProfile;
+    if (¿Tipo de zona?) then (OCR_TEXT / OCR_NUMBER)
+      :Recorta zona y ejecuta\nOCRRecognizer\n(motor configurado por org);
+    elseif (CHECKBOX)
+      :Recorta zona y ejecuta\nCheckboxRecognizer\n(densidad de píxeles);
+    endif
+    :Almacena resultados\nen recognized_data;
+    :Marca ExamPage\ncomo RECOGNIZED;
+    :Dispara schedule_assembly\n(tarea diferida);
+  else (no)
+    :Marca ExamPage\ncon QR_READ_ERROR;
+    :La página queda\nPENDING_RECOGNITION\n(requiere intervención manual);
+  endif
+}
+
+partition "assemble_exam_pages (ensamblado, diferido)" {
+  :Agrupa páginas RECOGNIZED\ndel mismo examen;
+  :Ejecuta algoritmo húngaro\npara asignar lotes a alumnos;
+  :Crea o actualiza ExamInstance;
+  :Adjunta páginas a la instancia;
+  :Detecta incidencias\n(MISSING_PAGE, STUDENT_NOT_IDENTIFIED...);
+  :Transita instancia a RECEIVED\nsi todas las páginas han llegado;
+}
+
+stop
+@enduml

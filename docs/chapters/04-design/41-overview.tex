@@ -1,8 +1,42 @@
-El backend del SCDEE adopta una arquitectura distribuida basada en
-contenedores, donde un núcleo de aplicación Django se comunica con servicios
+\subsection{Componentes y despliegue}
+\label{SS:DES-COMPONENTS}
+
+El \dfn{backend} del SCDEE adopta una arquitectura distribuida basada en
+contenedores Docker, donde una aplicación Django se comunica con servicios
 especializados de persistencia, mensajería, almacenamiento de objetos y
-procesamiento asíncrono. Esta organización permite escalar horizontalmente
-los componentes con mayor demanda computacional (reconocimiento de páginas,
-generación de \acsp{pdf}) sin comprometer la latencia de la \acs{api}, y
-satisface el requisito de despliegue mediante un único fichero
-\texttt{docker-compose.yml} (\cref{rnf:deployment}).
+procesamiento asíncrono. La \cref{fig:scdee-components} muestra los siete
+componentes principales.
+
+\begin{figure}[Componentes del SCDEE]%
+              {fig:scdee-components}%
+              {Componentes del \dfn{backend} del SCDEE.}
+  \image{}{}{mermaid/scdee_components}
+\end{figure}
+
+El \textbf{servicio API} (Django + \acs{drf}) expone los recursos bajo
+\texttt{/api/v1/}, implementa el \textit{middleware} de contexto
+\dfn{multi-tenant} y la autorización contextual. Delega las tareas de
+larga duración a \textbf{Celery}, que gestiona tres colas
+(\texttt{default}, \texttt{recognition}, \texttt{notifications}) sobre
+\textbf{Redis} como \textit{broker}. La persistencia recae en
+\textbf{PostgreSQL}, con integridad referencial estricta. Los binarios
+(páginas escaneadas, \acs{pdf}, anotaciones de audio) se almacenan en
+\textbf{MinIO}, compatible con la \ac{api} \ac{s3}. Un \textbf{watcher}
+de ingesta monitoriza carpetas \acs{sftp} y encola nuevas páginas para
+reconocimiento. \textbf{Celery Beat} planifica tareas periódicas (borrado
+automático, apertura y cierre de revisiones).
+
+El \dfn{frontend}, responsabilidad del \acs{tfg} paralelo, se sitúa fuera
+del \dfn{backend} y se comunica exclusivamente a través de la
+\acs{api} \acs{rest}.
+
+El despliegue se orquesta mediante un único fichero
+\texttt{docker-compose.yml} (\cref{fig:scdee-deployment}), con cada
+servicio en un contenedor independiente y la configuración externalizada
+en variables de entorno (\cref{rnf:deployment}).
+
+\begin{figure}[Despliegue del SCDEE]%
+              {fig:scdee-deployment}%
+              {Diagrama de despliegue del \dfn{backend} del SCDEE.}
+  \image{}{0.55\textheight}{mermaid/scdee_deployment}
+\end{figure}

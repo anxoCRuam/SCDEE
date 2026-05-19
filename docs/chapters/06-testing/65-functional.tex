@@ -2,14 +2,14 @@ La validación funcional del sistema se apoya en tres pruebas
 \textit{end-to-end} que recorren los flujos críticos sin saltarse capas.
 La prueba \texttt{test\_lifecycle\_e2e} parte de la ingesta de páginas
 escaneadas y verifica todas las transiciones de la
-\texttt{ExamInstance} hasta su archivo, comprobando que las incidencias
+\texttt{ExamInstance} hasta su archivado, comprobando que las incidencias
 se registran y resuelven según las reglas del
 \cref{SEC:DES-LIFECYCLE}. La prueba \texttt{test\_grading\_flow} valida
 la asignación de correctores, la introducción de anotaciones, el
 cálculo de la calificación por rúbrica y la transición a
 \texttt{PUBLISHED}. La prueba \texttt{test\_export} verifica la
 exportación de calificaciones a \acs{csv} con el formato configurable
-descrito en \cref{SS:DES-OPS-ORG}. En conjunto, las tres pruebas
+descrito en la configuración. En conjunto, las tres pruebas
 verifican el cumplimiento simultáneo de los requisitos
 \cref{rf:instances,rf:annotations,rf:grading,rf:review} sobre datos
 generados de forma realista.

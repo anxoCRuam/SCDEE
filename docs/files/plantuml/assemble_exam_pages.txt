@@ -1,0 +1,61 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam ActivityDiamondBackgroundColor #FEFEFE
+skinparam ActivityBackgroundColor #F4F4F4
+skinparam ActivityBorderColor #444444
+skinparam ArrowColor #444444
+title Subtarea 3: assemble_exam_pages (ensamblado diferido)
+
+start
+if (¿condición de disparo?) then (saturación: todas las
+páginas esperadas
+han llegado)
+else (timeout: venció la
+ventana de espera)
+endif
+
+:Recoge páginas RECOGNIZED
+sin instancia del mismo examen;
+:Agrupa por batch_id
+(mismo lote físico
+=> mismo alumno);
+
+partition "Construcción de la matriz de puntuaciones" {
+  :Para cada par (lote, alumno convocado);
+  :Calcula similaridad de
+  nombre, NIA y DNI extraídos
+  vs. valores reales del alumno;
+  :Aplica clases de equivalencia OCR
+  (O~0, l~1~I, etc.);
+  :Pondera por unicidad:
+  DNI y NIA pesan más
+  que nombre y apellidos;
+}
+
+:Ejecuta algoritmo húngaro
+(scipy.optimize.linear_sum_assignment);
+note right
+  asignación 1-a-1
+  globalmente óptima
+  en O(n^3)
+end note
+
+partition "Para cada lote asignado" {
+  :Crea o actualiza ExamInstance;
+  :Adjunta páginas a la instancia;
+  if (¿confianza < umbral?) then (sí)
+    :Marca incidencia
+    LOW_MATCH_CONFIDENCE;
+  endif
+  if (¿faltan páginas?) then (sí)
+    :Marca incidencia
+    MISSING_PAGE;
+  else (no)
+    :Transita instancia
+    a RECEIVED;
+  endif
+}
+
+stop
+@enduml

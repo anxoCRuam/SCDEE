@@ -3,19 +3,48 @@ las reuniones periódicas con el tutor, el estudio comparativo de las
 plataformas descritas en \cref{SEC:SOTA-PLATFORMS}, y los requisitos
 institucionales transversales de seguridad y privacidad. Cada requisito se
 formula operativamente en términos de entrada, proceso y salida, lo que
-facilita su validación posterior.
+facilita su validación posterior y su trazabilidad con los módulos del
+sistema.
 
-Desde la perspectiva del backend, el actor inmediato es el \dfn{frontend},
-que materializa toda interacción con los actores humanos finales mediante
-peticiones a la \ac{api} \ac{rest}. Los actores humanos del sistema,
-ordenados por nivel de privilegio decreciente, son: el
-\textbf{superadministrador} del sistema, que gestiona las organizaciones
-cliente; el \textbf{gestor de organización} (\texttt{is\_staff=True}), que
-administra usuarios, cursos y configuración dentro de una
-organización; el \textbf{coordinador de asignatura}, responsable académico
-de una asignatura, con permisos plenos sobre sus exámenes; el
-\textbf{profesor}, corrector de las instancias que tiene asignadas; y el
-\textbf{alumno}, que consulta su instancia y solicita revisión. El sistema
-no implementa una jerarquía rígida de roles globales: los permisos
-académicos se definen contextualmente por asignatura mediante
-\texttt{SubjectMembership}.
+Desde la perspectiva del \dfn{backend}, el actor inmediato es el
+\dfn{frontend}, que materializa toda interacción con los actores humanos
+finales mediante peticiones a la \ac{api} \ac{rest}. Los actores humanos
+del sistema, ordenados por nivel de privilegio decreciente, son:
+
+\begin{description}
+  \item[Superadministrador] Usuario global del sistema, sin organización
+        asociada, responsable de crear y gestionar las organizaciones
+        cliente. No está sujeto al filtro \dfn{multi-tenant} y puede operar
+        sobre cualquier organización.
+
+  \item[Gestor de organización] Usuario con el \textit{flag}
+        \texttt{is\_staff=True} que administra usuarios, cursos y
+        configuración dentro de su organización. Tiene acceso implícito a
+        todas las asignaturas de su organización sin necesidad de una
+        membresía explícita.
+
+  \item[Coordinador de asignatura] Usuario con una
+        \texttt{SubjectMembership} de rol \texttt{COORDINATOR} en una
+        asignatura concreta. Posee el conjunto completo de permisos
+        contextuales por defecto y puede delegarlos en profesores de la
+        misma asignatura.
+
+  \item[Profesor] Usuario con una \texttt{SubjectMembership} de rol
+        \texttt{TEACHER}. Sus permisos efectivos dependen de los valores
+        por defecto de la organización y de las posibles anulaciones que el
+        coordinador haya aplicado sobre su membresía. Solo accede a las
+        instancias y problemas que tiene asignados mediante
+        \texttt{AssignmentRule}.
+
+  \item[Alumno] Usuario con una \texttt{SubjectMembership} de rol
+        \texttt{STUDENT}. Sus permisos son fijos y no admiten anulaciones.
+        Solo puede consultar su propia instancia de examen y únicamente
+        durante los periodos de publicación y revisión, con el nivel de
+        detalle que el examen permita.
+\end{description}
+
+El sistema no implementa una jerarquía rígida de roles globales: los
+permisos académicos se definen contextualmente por asignatura mediante
+\texttt{SubjectMembership}, lo que permite que un mismo usuario sea
+coordinador en una asignatura, profesor en otra y alumno en una tercera
+dentro del mismo curso.

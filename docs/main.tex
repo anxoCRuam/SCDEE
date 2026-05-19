@@ -24,7 +24,7 @@
 
 
 \documentclass[epsbased,tfg,covers,final,printable,extendedindex,%
-               firstnumbered,lof,lot,loc,loa]{tfgtfmthesisuam}
+               firstnumbered,lof,lot, loc]{tfgtfmthesisuam}
 
 
 % =============================================================================
@@ -39,7 +39,10 @@
 %  Documento
 % =============================================================================
 \begin{document}
-
+\crefname{table}{tabla}{tablas}
+\Crefname{table}{Tabla}{Tablas}
+\crefname{code}{código}{códigos}
+\Crefname{code}{Código}{Códigos}
 
 % -----------------------------------------------------------------------------
 %  Capítulo 1 — Introducción
@@ -104,6 +107,9 @@
                  \emph{plugins}\label{SS:SOTA-PLUGINS}}%
                 {chapters/02-state-of-the-art/232-plugins}
 
+  \section{Asignación automatizada de documentos a identidades%
+           \label{SEC:SOTA-MATCHING}}%
+          {chapters/02-state-of-the-art/24-matching}
 
 % -----------------------------------------------------------------------------
 %  Capítulo 3 — Análisis
@@ -123,68 +129,30 @@
 \chapter{Diseño\label{CAP:DESIGN}}{chapters/04-design/intro}
   \section{Arquitectura general\label{SEC:DES-OVERVIEW}}%
           {chapters/04-design/41-overview}
-    \subsection{Componentes\label{SS:DES-COMPONENTS}}%
-                {chapters/04-design/411-components}
-    \subsection{Modelo de despliegue\label{SS:DES-DEPLOYMENT}}%
-                {chapters/04-design/412-deployment}
+  \section[Arquitectura por capas]%
+          {Arquitectura por capas con \textit{Service Layer}%
+           \label{SEC:DES-LAYERS}}%
+          {chapters/04-design/42-architecture-layers}
   \section[Modelo de datos y multi-tenant]%
-          {Modelo de datos y aislamiento
-           \dfn{multitenant}\label{SEC:DES-DATA}}%
-          {chapters/04-design/42-data}
-    \subsection{Estructura del modelo\label{SS:DES-MODEL-STRUCTURE}}%
-                {chapters/04-design/421-structure}
-    \subsection{Visión global del modelo\label{SS:DES-MODEL-OVERVIEW}}%
-                {chapters/04-design/422-overview}
-    \subsection[Aislamiento multi-tenant]%
-                {Aislamiento \dfn{multitenant}%
-                 \label{SS:DES-MODEL-ISOLATION}}%
-                {chapters/04-design/423-isolation}
-  \section[Capa de servicios y arquitectura modular]%
-          {Capa de servicios y arquitectura
-           modular\label{SEC:DES-LAYERS}}%
-          {chapters/04-design/43-layers}
-    \subsection[Arquitectura por capas]%
-                {Arquitectura por capas con
-                 \textit{Service Layer}\label{SS:DES-SERVICE-LAYER}}%
-                {chapters/04-design/431-service-layer}
-    \subsection[Aplicaciones Django]%
-                {Organización modular en aplicaciones
-                 Django\label{SS:DES-APPS}}%
-                {chapters/04-design/432-apps}
-    \subsection[Plugins intercambiables]%
-                {\dfnpl{plugin} intercambiables\label{SS:DES-PLUGINS}}%
-                {chapters/04-design/433-plugins}
+          {Modelo de datos y aislamiento \dfn{multi-tenant}%
+           \label{SEC:DES-DATA}}%
+          {chapters/04-design/43-data-model}
+  \section[Plugins intercambiables]%
+          {Plugins intercambiables\label{SEC:DES-PLUGINS}}%
+          {chapters/04-design/44-plugins}
   \section[Pipeline de ingesta y reconocimiento]%
-          {\textit{Pipeline} de ingesta y
-           reconocimiento\label{SEC:DES-INGEST}}%
-          {chapters/04-design/44-pipeline}
-    \subsection{Detección y encolado\label{SS:DES-INGEST-DETECTION}}%
-                {chapters/04-design/441-detection}
-    \subsection{Procesamiento\label{SS:DES-INGEST-PROCESSING}}%
-                {chapters/04-design/442-processing}
-    \subsection{Reconocimiento\label{SS:DES-INGEST-RECOGNITION}}%
-                {chapters/04-design/443-recognition}
-    \subsection{Asignación\label{SS:DES-INGEST-ASSIGNMENT}}%
-                {chapters/04-design/444-assignment}
-  \section{Ciclo de vida de las instancias\label{SEC:DES-LIFECYCLE}}%
-          {chapters/04-design/45-lifecycle}
-  \section{Operaciones del sistema\label{SEC:DES-OPS}}%
-          {chapters/04-design/46-operations}
-    \subsection{Configuración del examen\label{SS:DES-OPS-EXAM}}%
-                {chapters/04-design/461-exam-config}
-    \subsection[Convocatoria y asignación de correctores]%
-                {Convocatoria y asignación de
-                 correctores\label{SS:DES-OPS-CONVOCATION}}%
-                {chapters/04-design/462-convocation-correctors}
-    \subsection{Anotaciones y calificación\label{SS:DES-OPS-ANNOT}}%
-                {chapters/04-design/463-annotations-grading}
-    \subsection{Operaciones de organización\label{SS:DES-OPS-ORG}}%
-                {chapters/04-design/464-organization-ops}
+          {\textit{Pipeline} de ingesta y reconocimiento%
+           \label{SEC:DES-INGEST}}%
+          {chapters/04-design/45-pipeline}
+  \section[Ciclo de vida de las instancias]%
+          {Ciclo de vida de las instancias de examen%
+           \label{SEC:DES-LIFECYCLE}}%
+          {chapters/04-design/46-lifecycle}
   \section{Seguridad y cumplimiento\label{SEC:DES-SECURITY}}%
           {chapters/04-design/47-security}
-  \section[API REST y contrato de integración]%
-          {\acs{api} \acs{rest} y contrato de
-           integración\label{SEC:DES-API}}%
+  \section[\acs{api} \acs{rest} y contrato de integración]%
+          {\acs{api} \acs{rest} y contrato de integración%
+           \label{SEC:DES-API}}%
           {chapters/04-design/48-api}
 
 
@@ -267,8 +235,8 @@
           {Calidad del reconocimiento óptico\label{SEC:CDETAIL-OCR}}%
           {appendices/C-detailed-test-results/C3-ocr-quality}
 
-\chapter{Catálogo de servicios por aplicación\label{AP:SERVICES}}%
-        {appendices/D-services/D-overview}
+% \chapter{Catálogo de servicios por aplicación\label{AP:SERVICES}}%
+%         {appendices/D-services/D-overview}
 
 \chapter{Especificación OpenAPI\label{AP:OPENAPI}}%
         {appendices/E-openapi/E-overview}
@@ -284,5 +252,16 @@
   \section{Vista global\label{SEC:CLASS-GLOBAL}}%
           {appendices/F-class-diagrams/F2-global}
 
+\chapter{Diagramas de secuencia\label{AP:SEQUENCE}}%
+        {appendices/G-sequence-diagrams/G-overview}
+  \section{Autenticación y contexto multi-tenant%
+           \label{SEC:SEQ-AUTH}}%
+          {appendices/G-sequence-diagrams/G1-auth}
+  \section{Ingesta multipágina y pipeline completo%
+           \label{SEC:SEQ-INGEST}}%
+          {appendices/G-sequence-diagrams/G2-ingest}
+  \section{Flujo de revisión%
+           \label{SEC:SEQ-REVIEW}}%
+          {appendices/G-sequence-diagrams/G3-review}
 
 \end{document}

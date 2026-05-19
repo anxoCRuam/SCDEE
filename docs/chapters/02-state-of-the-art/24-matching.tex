@@ -1,0 +1,33 @@
+El problema de emparejar un lote de páginas escaneadas con la identidad
+del alumno que las escribió es una instancia del \textbf{problema de
+asignación} (\textit{assignment problem}), formalizado por Kuhn en 1955
+\cite{kuhn1955hungarian}. Dado un conjunto de \(m\) lotes de páginas
+(cada una con atributos OCR inciertos) y \(n\) candidatos convocados
+(con atributos ciertos), se busca una asignación 1-a-1 que maximice la
+suma total de las puntuaciones de similitud.
+
+Las plataformas comerciales evitan este problema mediante mecanismos que
+reducen la incertidumbre: Crowdmark imprime el nombre del alumno en cada
+página, eliminando la necesidad de reconocimiento; Gradescope emplea un
+pre-emparejamiento basado en el orden de escaneo. En el SCDEE, la
+decisión de diseño de no usar metadatos externos de carpeta y de no
+imprimir datos personales en los PDF por razones de privacidad hace que
+el problema de asignación sea ineludible.
+
+La literatura ofrece dos familias de algoritmos: los \textbf{voraces}
+(\textit{greedy}), que asignan cada lote al mejor candidato disponible
+de forma independiente, y los \textbf{óptimos globales}, que resuelven
+el problema completo mediante el algoritmo húngaro
+(\textit{Kuhn-Munkres}). Los primeros son más rápidos (\(O(m \cdot n)\))
+pero pueden producir conflictos (dos lotes asignados al mismo alumno);
+los segundos garantizan la optimalidad global (\(O(\max(m,n)^3)\)) y la
+exclusividad de la asignación.
+
+Para la función de puntuación, los trabajos recientes en reconocimiento
+robusto de texto manuscrito \cite{smith2007tesseract,easyocr} muestran
+que la normalización tolerante a errores (confusiones de caracteres
+frecuentes en OCR, como \texttt{O} y \texttt{0}, o \texttt{l} y
+\texttt{1}) mejora significativamente la precisión del emparejamiento
+frente a la distancia de Levenshtein estándar. La evaluación empírica de
+estas alternativas en el contexto del SCDEE se presenta en el
+\cref{CAP:TESTING}.

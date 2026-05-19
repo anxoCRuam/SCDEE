@@ -24,3 +24,72 @@
 \newdefinition{tenant}{tenant}{tenants}%
   {Cada una de las organizaciones que comparten una instancia del sistema en
    una arquitectura multi-tenant}
+
+\newdefinition{instancia}{instancia de examen}{instancias de examen}{Copia física
+digitalizada de un examen asociada a un estudiante concreto, que incluye el
+\acs{pdf} escaneado, sus anotaciones, calificaciones y metadatos}
+
+\newdefinition{modelo}{modelo de examen}{modelos de examen}{Variante estructural
+de un examen que define el número de problemas, sus puntuaciones, las zonas de
+reconocimiento y el \acs{pdf} en blanco de referencia}
+
+\newdefinition{anotacion}{anotación}{anotaciones}{Registro creado por un corrector
+sobre una \dfn{instancia} que puede contener texto enriquecido, trazos de
+\textit{stylus} o audio, y que opcionalmente se asocia a un problema concreto}
+
+\newdefinition{rubrica}{rúbrica}{rúbricas}{Conjunto de criterios de evaluación con
+puntuación fija asociados a un problema, cuyos \textit{checkmarks} el corrector
+marca para calcular automáticamente la calificación}
+
+\newdefinition{corrector}{corrector}{correctores}{Profesor al que se le han asignado
+una o más \dfnpl{instancia} o problemas de un examen para su evaluación}
+
+\newdefinition{coordinador}{coordinador}{coordinadores}{Profesor con el rol principal
+de gestión dentro de una asignatura, responsable de crear exámenes, asignar
+correctores, gestionar revisiones y publicar calificaciones}
+
+\newdefinition{gestor}{gestor}{gestores}{Usuario con permisos de administración de la
+plataforma, responsable de la gestión de usuarios, cursos académicos y configuración
+global del sistema}
+
+\newdefinition{watcher}{watcher}{watchers}{Proceso demonio que monitoriza una o varias
+carpetas \acs{sftp} en busca de nuevos ficheros \acs{pdf} para iniciar su ingesta
+automática}
+
+\newdefinition{softdelete}{desactivación lógica}{desactivaciones lógicas}{Mecanismo de
+baja de un registro que preserva su existencia en la base de datos mediante un campo
+indicador, garantizando la integridad referencial de los datos históricos}
+
+\newdefinition{zonaocr}{zona de reconocimiento}{zonas de reconocimiento}{Región
+rectangular definida por coordenadas y página sobre el \acs{pdf} en blanco de un
+\dfn{modelo}, que indica al motor \acs{ocr} dónde buscar un atributo concreto}
+
+\newdefinition{regla}{regla de asignación}{reglas de asignación}{Configuración que
+define qué \dfnpl{corrector} evalúan qué \dfnpl{instancia} o problemas, basándose en
+filtros como grupo, \dfn{modelo} o problema}
+
+\newdefinition{endpoint}{endpoint}{endpoints}{Punto de acceso de una \ac{api} \ac{rest},
+identificado por una \ac{http} y una ruta, que acepta peticiones y devuelve respuestas}
+
+\newdefinition{worker}{worker}{workers}{Proceso independiente que ejecuta tareas
+asíncronas extraídas de una cola de mensajes}
+
+\newdefinition{broker}{broker}{brokers}{Intermediario de mensajes que gestiona la
+comunicación entre productores y consumidores de tareas asíncronas}
+
+\newdefinition{pipeline}{pipeline}{pipelines}{Secuencia encadenada de etapas de
+procesamiento en la que la salida de una etapa alimenta la entrada de la siguiente}
+
+\newdefinition{bucket}{bucket}{buckets}{Contenedor lógico de almacenamiento de objetos en un
+servicio de almacenamiento, utilizado para organizar y gestionar los archivos del sistema}
+
+\newdefinition{multi-tenant}{multi-tenant}{multi-tenant}{Arquitectura de software en la que una única
+instancia de la aplicación sirve a múltiples organizaciones o clientes, manteniendo la
+separación de datos y configuraciones entre ellos}
+
+\newdefinition{single-tenant}{single-tenant}{single-tenant}{Arquitectura de software en la que cada
+organización o cliente tiene su propia instancia dedicada de la aplicación, con su propia
+base de datos y configuración}
+
+\newdefinition{polling}{polling}{polling}{Técnica de comunicación en la que un proceso cliente
+realiza peticiones periódicas a un servidor para comprobar si hay nuevos datos o eventos disponibles}

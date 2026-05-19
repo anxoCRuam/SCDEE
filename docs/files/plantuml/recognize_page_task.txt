@@ -1,0 +1,47 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam ActivityDiamondBackgroundColor #FEFEFE
+skinparam ActivityBackgroundColor #F4F4F4
+skinparam ActivityBorderColor #444444
+skinparam ArrowColor #444444
+title Subtarea 2: recognize_page_task (reconocimiento)
+
+start
+:Descarga imagen de MinIO;
+:Ejecuta QRRecognizer
+sobre la imagen completa;
+if (¿QR válido?) then (sí)
+  :Extrae org_id, exam_id,
+  model_id, page_number
+  y verifica checksum;
+  :Resuelve PageProfile
+  para el modelo y página;
+  partition "Para cada zona no-QR del perfil" {
+    if (¿Tipo de zona?) then (OCR_TEXT / OCR_NUMBER)
+      :Recorta zona y ejecuta
+      OCRRecognizer
+      (motor configurado por org,
+      allowlist según tipo);
+    else (CHECKBOX)
+      :Recorta zona y ejecuta
+      CheckboxRecognizer
+      (densidad de píxeles oscuros);
+    endif
+  }
+  :Almacena resultados
+  en recognized_data;
+  :Marca ExamPage
+  como RECOGNIZED;
+  :Dispara schedule_assembly
+  (tarea diferida con ventana
+  de espera por examen);
+else (no)
+  :Marca ExamPage con incidencia
+  QR_READ_ERROR;
+  :Mantiene status
+  PENDING_RECOGNITION
+  (requiere intervención manual);
+endif
+stop
+@enduml

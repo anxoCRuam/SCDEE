@@ -1,0 +1,18 @@
+El flujo de revisión cubre desde la creación de la solicitud de
+revisión por el alumno hasta su resolución por el corrector y la
+notificación a las partes implicadas. El diagrama
+(\cref{fig:seq-review}) incluye la validación de que la
+\texttt{ExamInstance} se encuentra en estado \texttt{IN\_REVIEW}, la
+creación del \texttt{ReviewRequest} con los problemas señalados, la
+transición de la instancia a \texttt{PENDING\_REVIEW}, la resolución
+por el corrector (con posibilidad de modificar la calificación) y el
+encolado de las notificaciones de correo electrónico al alumno y al
+coordinador.
+
+\begin{figure}[Flujo de solicitud y resolución de revisión]%
+              {fig:seq-review}%
+              {Diagrama de secuencia del flujo de revisión: solicitud
+               del alumno, transición de estado, resolución por el
+               corrector y notificaciones derivadas.}
+  \image{\textwidth}{}{plantuml/review_secuence}
+\end{figure}

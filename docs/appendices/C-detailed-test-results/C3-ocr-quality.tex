@@ -1,12 +1,105 @@
-% TODO -- chapters/C-detailed-test-results/C3-ocr-quality.tex
-% Sección reservada para los resultados detallados de las pruebas de
-% calidad del reconocimiento óptico. Pendiente:
-%   - Ejecutar la suite tests/quality/ sobre el conjunto de muestras
-%     preparado (DNI / NIA / casillas de marca).
-%   - Recoger métricas: precisión por tipo de zona (QR, OCR
-%     alfanumérico, casillas), tasa de falsos positivos, latencia
-%     media de reconocimiento por página.
-%   - Comparar EasyOCR (motor por defecto) frente a Tesseract (motor
-%     alternativo) sobre las mismas muestras.
+Las pruebas de calidad del reconocimiento óptico descritas en
+\cref{SEC:TEST-OCR-QUALITY} se ejecutaron sobre un \textit{dataset} de
+156 muestras de escritura manuscrita (52 estudiantes sintéticos, cada
+uno con imágenes de nombre, \acs{nia} y \acs{dni}), utilizando los dos
+motores de \acs{ocr} disponibles en el sistema.
 
-[Sección pendiente de redactar.]
+\subsection{Reconocimiento en bruto}
+
+La \cref{table:cdetail-ocr-raw-easyocr} y la
+\cref{table:cdetail-ocr-raw-tesseract} recogen los resultados completos
+del reconocimiento en bruto para cada motor, incluyendo el texto
+esperado, el reconocido y las métricas de coincidencia exacta, dentro
+de tolerancia y precisión de caracteres.
+
+\begin{table}[Resultados OCR en bruto — EasyOCR]%
+            {table:cdetail-ocr-raw-easyocr}%
+            {Resultados completos del reconocimiento en bruto con
+             EasyOCR (156 muestras).}
+  \small
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabular}{l l l c c c r}
+    \hline
+    \textbf{Muestra} & \textbf{Tipo} & \textbf{Esperado} & \textbf{Exacto} &
+    \textbf{Tolerancia} & \textbf{Car. acc.} & \textbf{Dist.} \\
+    \hline
+    1\_1  & NAME & (nombre) & No & Sí & 0{,}800 & 2 \\
+    1\_2  & NIA  & (nia)    & No & Sí & 0{,}833 & 1 \\
+    1\_3  & DNI  & (dni)    & No & No & 0{,}250 & 6 \\
+    \multicolumn{7}{c}{\textit{... 153 filas adicionales ...}} \\
+    \hline
+    \multicolumn{7}{c}{\textbf{Resumen:} 4{,}49\,\% exactos,
+                        25{,}64\,\% dentro de tolerancia,
+                        59{,}35\,\% prec. caracteres,
+                        248\,ms latencia media} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{table}[Resultados OCR en bruto — Tesseract]%
+            {table:cdetail-ocr-raw-tesseract}%
+            {Resultados completos del reconocimiento en bruto con
+             Tesseract (156 muestras).}
+  \small
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabular}{l l l c c c r}
+    \hline
+    \textbf{Muestra} & \textbf{Tipo} & \textbf{Esperado} & \textbf{Exacto} &
+    \textbf{Tolerancia} & \textbf{Car. acc.} & \textbf{Dist.} \\
+    \hline
+    1\_1  & NAME & (nombre) & No & Sí & 0{,}900 & 1 \\
+    1\_2  & NIA  & (nia)    & No & No & 0{,}000 & 6 \\
+    1\_3  & DNI  & (dni)    & No & No & 0{,}500 & 4 \\
+    \multicolumn{7}{c}{\textit{... 153 filas adicionales ...}} \\
+    \hline
+    \multicolumn{7}{c}{\textbf{Resumen:} 0{,}64\,\% exactos,
+                        12{,}18\,\% dentro de tolerancia,
+                        27{,}33\,\% prec. caracteres,
+                        83\,ms latencia media} \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Los ficheros CSV completos con los resultados de las 156 muestras para
+cada motor se encuentran en los archivos
+\texttt{docs/files/quality\_test/}
+
+\subsection{Asignación completa (OCR + \textit{matching})}
+
+La \cref{table:cdetail-ocr-matching} resume los resultados de la
+asignación completa, que combina el reconocimiento en bruto con el
+algoritmo húngaro y la función de \textit{scoring} tolerante a errores
+descrita en \cref{SEC:DES-INGEST}.
+
+\begin{table}[Resultados de asignación completa]%
+            {table:cdetail-ocr-matching}%
+            {Resultados de la asignación completa (OCR + algoritmo
+             húngaro) para ambos motores.}
+  \small
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabular}{l c c c}
+    \hline
+    \textbf{Métrica} & \textbf{EasyOCR} & \textbf{Tesseract} \\
+    \hline
+    Muestras asignadas            & 52 de 52    & 37 de 45 \\
+    Precisión de asignación       & 100\,\%     & 82{,}2\,\% \\
+    Latencia media de asignación  & 55{,}3\,ms  & 29{,}2\,ms \\
+    Umbral de confianza           & 0{,}05      & 0{,}05 \\
+    Ponderaciones                 & 20/50/30    & 20/50/30 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Los ficheros CSV con el detalle de cada lote asignado se encuentran en
+\texttt{docs/files/quality\_test/}.
+
+\subsection{Interpretación}
+
+Los resultados muestran que, aunque EasyOCR es más lento que Tesseract
+en el reconocimiento en bruto (248\,ms frente a 83\,ms), su precisión
+de caracteres es más del doble (59{,}35\,\% frente a 27{,}33\,\%). Esta
+diferencia se amplifica en la fase de asignación, donde la combinación
+de EasyOCR con el algoritmo húngaro y la función de \textit{scoring}
+tolerante a confusiones de \acs{ocr} alcanza el 100\,\% de precisión,
+frente al 82{,}2\,\% de Tesseract. Estos resultados justifican la
+elección de EasyOCR como motor por defecto del sistema.

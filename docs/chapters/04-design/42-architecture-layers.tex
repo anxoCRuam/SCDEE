@@ -1,0 +1,29 @@
+\subsection{Arquitectura por capas}
+\label{SS:DES-LAYERS}
+
+Dentro del servicio API, el código se organiza en cuatro capas con
+responsabilidades estrictamente separadas, siguiendo el patrón
+\textit{Service Layer} de Fowler \cite{fowler2002}:
+
+\begin{description}
+  \item[Modelos] Definen la estructura persistente mediante el \acs{orm}
+  de Django. No contienen lógica de negocio más allá de invariantes del
+  propio modelo.
+
+  \item[Serializadores] Traducen entre representaciones \acs{json} y
+  objetos del modelo, y validan los datos de entrada conforme a las
+  restricciones del dominio.
+
+  \item[Vistas] Implementadas como \texttt{APIView} y \texttt{ViewSet} de
+  \acs{drf}, resuelven el enrutado \acs{http}, aplican autenticación y
+  autorización, y delegan la lógica de negocio a los servicios.
+
+  \item[Servicios] Encapsulan la lógica de negocio reutilizable y
+  desacoplada de \acs{http}. Operan sobre objetos del modelo y devuelven
+  resultados estructurados.
+\end{description}
+
+Esta separación permite probar la lógica de negocio sin levantar el
+servidor \acs{http}, reutilizar los mismos servicios desde vistas
+síncronas, tareas asíncronas de Celery o comandos de gestión, y sustituir
+la capa de presentación sin reescribir la lógica.

@@ -1,0 +1,18 @@
+El flujo de autenticación cubre desde la solicitud
+\texttt{POST /auth/login/} con email y contraseña hasta la
+disponibilidad del contexto de \dfn{tenant} para todas las consultas
+posteriores. El diagrama (\cref{fig:seq-auth}) incluye la
+verificación de credenciales por el \dfn{plugin} activo, la emisión
+del par de \textit{tokens}, el establecimiento de la variable de
+hilo \texttt{current\_organization\_id} en el \textit{middleware} de
+la siguiente petición y la posterior limpieza de dicha variable al
+finalizar la respuesta.
+
+\begin{figure}[Flujo de autenticación y contexto multi-tenant]%
+              {fig:seq-auth}%
+              {Diagrama de secuencia de la autenticación \acs{jwt}:
+               desde el \texttt{POST /auth/login/} hasta la disposición
+               del contexto de \dfn{tenant} para la primera consulta
+               protegida.}
+  \image{\textwidth}{}{plantuml/auth_secuence}
+\end{figure}

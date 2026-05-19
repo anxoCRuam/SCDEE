@@ -1,17 +1,79 @@
-% TODO -- chapters/06-testing/64-ocr-quality.tex
-% Sección reservada para los resultados de las pruebas de calidad
-% del reconocimiento óptico. Pendiente:
-%   - Ejecutar la suite tests/quality/ sobre el conjunto de muestras
-%     preparado (DNI / NIA / casillas de marca).
-%   - Recoger métricas: precisión por tipo de zona (QR, OCR
-%     alfanumérico, casillas), tasa de falsos positivos, latencia
-%     media de reconocimiento por página.
-%   - Comparar EasyOCR (motor por defecto) frente a Tesseract (motor
-%     alternativo) sobre las mismas muestras.
-% Estructura prevista:
-%   1. Conjunto de prueba y metodología.
-%   2. Resultados por tipo de zona.
-%   3. Comparativa entre motores (si procede).
-% El detalle completo se incluirá en \cref{AP:TEST-RESULTS}.
+Para evaluar y seleccionar el motor de \acs{ocr} más adecuado al dominio
+del SCDEE, se diseñó una prueba de calidad sobre un \textit{dataset}
+conformado por muestras reales de escritura manuscrita de alumnos de
+la UAM y otros colaboradores. Se recopilaron un total de 156 muestras,
+con textos de nombre y apellido, \acs{nia} y \acs{dni}.
+Las muestras se procesaron con los dos motores
+disponibles (EasyOCR y Tesseract) y se midió tanto la calidad del
+reconocimiento en bruto como la precisión del sistema completo de
+\textit{matching} (\cref{code:matching}) que lo consume.
 
-[Sección pendiente de redactar.]
+\subsection{Metodología}
+
+Se preparó un conjunto de 52 estudiantes sintéticos, cada uno con tres
+imágenes de muestra (nombre y apellidos, \acs{nia} y \acs{dni}), totalizando
+52 exámenes de 1 página y 156 zonas. Para cada zona, se ejecutó el reconocimiento con ambos
+motores y se comparó el texto extraído con el valor esperado mediante
+tres métricas: coincidencia exacta, coincidencia dentro de un margen de
+tolerancia (calculada por la distancia de Levenshtein acotada por tipo de zona) y
+precisión de caracteres (\textit{character accuracy}, definida como
+\(1 - \text{distancia} / \max(|\text{esperado}|, |\text{obtenido}|)\)).
+
+A continuación, se reconstruyó el flujo completo de asignación: los 52
+lotes de atributos extraídos por cada motor se emparejaron contra la
+lista de 52 estudiantes convocados mediante el algoritmo húngaro y la
+función de \textit{scoring} por defecto (ponderaciones 20\,\% nombre,
+50\,\% \acs{nia}, 30\,\% \acs{dni}). Se midió la precisión de la
+asignación como el porcentaje de lotes correctamente emparejados con su
+alumno.
+
+\subsection{Resultados}
+
+La \cref{table:ocr-results} resume los resultados de ambas fases.
+
+\begin{table}[Resultados de las pruebas de calidad OCR]%
+            {table:ocr-results}%
+            {Resultados de las pruebas de reconocimiento óptico en bruto y
+             de asignación completa (\textit{matching}).}
+  \small
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabular}{l c c}
+    \hline
+    \textbf{Métrica} & \textbf{EasyOCR} & \textbf{Tesseract} \\
+    \hline
+    \multicolumn{3}{c}{\textit{Reconocimiento en bruto (156 muestras)}} \\
+    \hline
+    Precisión exacta          & 4{,}49\,\%  & 0{,}64\,\%  \\
+    Dentro de tolerancia      & 25{,}64\,\% & 12{,}18\,\% \\
+    Precisión de caracteres   & 59{,}35\,\% & 27{,}33\,\% \\
+    Latencia media            & 248\,ms     & 83\,ms      \\
+    \hline
+    \multicolumn{3}{c}{\textit{Asignación completa (52 lotes)}} \\
+    \hline
+    Precisión de asignación   & \textbf{100\,\% (52/52)} & 82{,}2\,\% (37/45) \\
+    Latencia media            & 55{,}33\,ms & 29{,}20\,ms \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\subsection{Interpretación}
+
+Los resultados muestran que, aunque EasyOCR es más lento que Tesseract
+en el reconocimiento en bruto, su precisión es significativamente
+superior, aunque no lo suficiente para ser funcional por sí mismo, con solo
+un 4{,}5\% de exactitud. Sin embargo, al aplicar el sistema de matching
+implementado en la aplicación, se consigue alcanzar el 100\,\% de precisión.
+
+Con Tesseract, que no llega al 1\,\% de precisión, también se consigue un
+resultado aceptable con un 82{,}2\,\%, cometiendo 8 errores
+de asignación.
+
+La combinación de EasyOCR con la función de \textit{scoring} tolerante a
+confusiones de \acs{ocr} y el algoritmo húngaro resulta, por tanto, la
+configuración más fiable para el escenario de identificación de alumnos
+del SCDEE, y es la que se utiliza como configuración por defecto del
+sistema. Además tan solo añade al rededor de 55ms de latencia por página
+asociada.
+
+Los resultados detallados de cada muestra y cada motor se recogen en
+\cref{AP:TEST-RESULTS}.

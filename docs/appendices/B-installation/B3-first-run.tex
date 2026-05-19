@@ -5,13 +5,16 @@ se invoca con:
 make setup
 \end{verbatim}
 
-Este comando ejecuta secuencialmente la construcción de las imágenes
-(\texttt{make build}), el arranque de los servicios (\texttt{make up})
-y la creación del \textit{bucket} por defecto de MinIO
-(\texttt{make setup-finish}). Tras el primer arranque deben aplicarse
-las migraciones y crearse el superusuario:
+Este comando ejecuta secuencialmente \texttt{make keygen},
+\texttt{make build}, \texttt{make up}, \texttt{make makemigrations},
+\texttt{make migrate}, \texttt{make setup-finish},
+\texttt{make createsuperuser} y \texttt{make sftp-watcher}. Al
+finalizar, el sistema está completamente operativo con un superusuario
+creado y el \textit{watcher} de ingesta \acs{sftp} en ejecución.
+
+Si solo se desea reconstruir las imágenes y arrancar, puede ejecutarse:
 
 \begin{verbatim}
-make migrate
-make createsuperuser
+make build
+make up
 \end{verbatim}

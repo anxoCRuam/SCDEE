@@ -80,7 +80,7 @@
 
     \textbf{Entrada:} petición POST al recurso de usuarios con los datos del nuevo usuario: nombre, apellidos, DNI, identificador en la organización (NIA), correo electrónico y otros datos opcionales.
 
-    \textbf{Proceso:} el sistema valida la unicidad del correo electrónico, el NIA y el DNI dentro de la organización. Cifra el DNI con AES-256-GCM antes de almacenarlo. Genera una contraseña segura aleatoria, la almacena como hash con salt y encola un correo electrónico de bienvenida con la contraseña en texto plano. El usuario se crea con is\_active=True y is\_staff=False. Se registra la operación en el log de auditoría.
+    \textbf{Proceso:} el sistema valida la unicidad del NIA y DNI dentro de la organización. Cifra el DNI con AES-256-GCM antes de almacenarlo. Genera una contraseña segura aleatoria, la almacena como hash con salt y encola un correo electrónico de bienvenida con la contraseña en texto plano. El usuario se crea con is\_active=True y is\_staff=False. Se registra la operación en el log de auditoría.
 
     \textbf{Salida:} respuesta con los datos del usuario creado (sin contraseña ni DNI descifrado) y código HTTP 201.
 
@@ -228,7 +228,7 @@
 
     \textbf{Entrada:} evento interno disparado por la creación de un nuevo curso.
 
-    \textbf{Proceso:} el sistema realiza las siguientes acciones de forma transaccional: (1) marca el curso anterior como archivado (is\_active=False, status=ARCHIVED); (2) desactiva (is\_active=False) a todos los usuarios no gestores de la organización; (3) marca todas las SubjectMembership asociadas al curso archivado como is\_active=False; (4) archiva las notificaciones del curso anterior; (5) establece todas las instancias de examen al estado archivado, independientemente de su estado actual. Se registra la operación completa en el log de auditoría.
+    \textbf{Proceso:} el sistema realiza las siguientes acciones de forma transaccional: (1) marca el curso anterior como archivado (is\_active=False); (2) desactiva (is\_active=False) a todos los usuarios no gestores de la organización; (3) marca todas las SubjectMembership asociadas al curso archivado como is\_active=False; (4) archiva las notificaciones del curso anterior; (5) establece todas las instancias de examen al estado archivado, independientemente de su estado actual. Se registra la operación completa en el log de auditoría.
 
     \textbf{Salida:} el curso anterior queda archivado y el sistema está preparado para recibir las importaciones de usuarios y asignaturas del nuevo curso.
 
@@ -367,7 +367,19 @@
 
   El sistema de autorización opera en tres capas contextuales, eliminando el concepto de «rol global» rígido. Los permisos se derivan de: (1) el flag is\_staff, que otorga permisos de gestor a nivel de organización; (2) la SubjectMembership, que define el rol (COORDINATOR, TEACHER, STUDENT) y los permisos contextuales dentro de una asignatura concreta mediante un campo JSON permission\_overrides; y (3) las reglas de asignación de corrección (AssignmentRule), que restringen el acceso a instancias o problemas concretos. Cada petición se evalúa contra el contexto actual (organización, curso, asignatura) para determinar si el usuario tiene autorización. La siguiente tabla recoge los permisos contextuales y sus valores por defecto según el rol.
 
-  | Permiso | COORD | TEACHER | STUDENT | |---------|-------|---------|---------| | can\_create\_exams | Sí | No | No | | can\_manage\_models | Sí | No | No | | can\_manage\_call\_list | Sí | No | No | | can\_assign\_correctors | Sí | No | No | | can\_grade | Sí | Sí | No | | can\_annotate | Sí | Sí | No | | can\_resolve\_issues | Sí | No | No | | can\_publish\_grades | Sí | No | No | | can\_manage\_reviews | Sí | No | No | | can\_view\_all\_instances | Sí | No | No | | can\_export\_grades | Sí | No | No | | can\_manage\_members | Sí | No | No | | can\_delegate\_perms | Sí | No | No |
+| Permiso | COORD | TEACHER | STUDENT |
+|---------|-------|---------|---------|
+| can\_create\_exams | Sí | No | No |
+| can\_create\_rubric | Sí | Sí | No |
+| can\_assign\_correctors | Sí | No | No |
+| can\_resolve\_issues | Sí | No | No |
+| can\_publish\_grades | Sí | No | No |
+| can\_manage\_reviews | Sí | No | No |
+| can\_view\_all\_instances | Sí | Sí | No |
+| can\_export\_grades | Sí | No | No |
+| can\_manage\_members | Sí | No | No |
+| can\_delegate\_perms | Sí | No | No |
+| can\_manage\_groups | Sí | No | No |
 
   \begin{functional}
     \item \textbf{Permisos de gestor (is\_staff).}
@@ -480,7 +492,7 @@
 
     \item \textbf{Gestión de la lista de convocados.}
 
-    El sistema debe permitir al coordinador o a un profesor con el permiso can\_manage\_call\_list definir la lista de alumnos convocados a un examen.
+    El sistema debe permitir al coordinador o a un profesor con el permiso can\_manage\_members definir la lista de alumnos convocados a un examen.
 
     \textbf{Entrada:} petición PUT al recurso de convocados del examen con la lista de identificadores de alumnos que deben estar convocados.
 
@@ -596,19 +608,19 @@
 
     \textbf{Entrada:} petición POST al recurso de generación del PDF instrumentado del modelo, disparada manualmente por el coordinador tras completar la definición de perfiles de página.
 
-    \textbf{Proceso:} el sistema verifica que el modelo tiene al menos un perfil de página con al menos una zona de tipo QR. Para cada página del PDF en blanco, superpone un código QR en las coordenadas de cada zona QR definida. El contenido del QR codifica `org\_id`, `exam\_id`, `model\_id` y `page\_number` en formato JSON minificado con un checksum de detección de errores. El QR generado tiene el tamaño exacto de la zona definida. El PDF instrumentado resultante se almacena en MinIO como un objeto independiente del PDF en blanco original, sin modificar este último. Los metadatos de generación (fecha, versión) se almacenan en base de datos. Si existía un PDF instrumentado previo para ese modelo, se sobreescribe.
+    \textbf{Proceso:} el sistema verifica que el modelo tiene al menos un perfil de página con al menos una zona de tipo QR. Para cada página del PDF en blanco, superpone un código QR en las coordenadas de cada zona QR definida. El contenido del QR codifica \texttt{org\_id}, \texttt{exam\_id}, \texttt{model\_id} y \texttt{page\_number} en formato JSON con un checksum de detección de errores. El PDF instrumentado resultante se devuelve directamente en la respuesta HTTP, sin almacenarse en MinIO. Si existía un PDF instrumentado previo para ese modelo, no se conserva; cada petición regenera el PDF a partir de la configuración actual de zonas.
 
-    \textbf{Salida:} respuesta con la confirmación de la generación y la referencia al PDF instrumentado en MinIO.
+    \textbf{Salida:} respuesta con el PDF instrumentado como descarga directa.
 
     \item \textbf{Descarga del PDF instrumentado.}
 
     El sistema debe permitir al coordinador o al gestor descargar el PDF instrumentado de un modelo para su impresión y distribución.
 
-    \textbf{Entrada:} petición GET al recurso de descarga del PDF instrumentado del modelo.
+    \textbf{Entrada:} petición POST al recurso de generación del PDF instrumentado del modelo.
 
-    \textbf{Proceso:} el sistema verifica que existe un PDF instrumentado válido (no invalidado) para el modelo. Genera una URL temporal con expiración hacia el fichero en MinIO. Si el PDF instrumentado está invalidado (por modificación de zonas QR o del PDF en blanco), responde con un error indicando que debe regenerarse primero.
+    \textbf{Proceso:} el sistema verifica que existe un PDF en blanco y al menos una zona QR definida para el modelo. Genera el PDF instrumentado bajo demanda y lo devuelve en la respuesta. Si no hay zonas QR definidas o no se ha cargado un PDF en blanco, responde con un error HTTP 409.
 
-    \textbf{Salida:} respuesta con la URL temporal para la descarga del PDF instrumentado, o error HTTP 409 si el PDF instrumentado está invalidado.
+    \textbf{Salida:} respuesta con el PDF instrumentado, o error HTTP 409 si no puede generarse.
 
   \end{functional}
 
@@ -868,7 +880,7 @@
 
     \textbf{Entrada:} tarea de reconocimiento desencolada, con la referencia a la ExamPage.
 
-    \textbf{Proceso:} el sistema localiza en la base de datos los perfiles de página de todos los modelos activos de la organización y busca zonas de tipo QR. Para cada zona QR candidata, recorta la región de la imagen y ejecuta el decodificador QR. Si el QR se decodifica correctamente, extrae `org\_id`, `exam\_id`, `model\_id` y `page\_number`, verifica el checksum y determina a qué examen, modelo y página pertenece la imagen. Si ninguna zona QR produce un resultado válido, se activa la incidencia `QR\_READ\_ERROR` y se aplica el fallback de proximidad temporal (RF-9.12). Si el QR indica un examen o modelo que no existe en el sistema, se activa `QR\_MISMATCH`.
+    \textbf{Proceso:} el sistema localiza en la base de datos los perfiles de página de todos los modelos activos de la organización y busca zonas de tipo QR. Para cada zona QR candidata, recorta la región de la imagen y ejecuta el decodificador QR. Si el QR se decodifica correctamente, extrae `org\_id`, `exam\_id`, `model\_id` y `page\_number`, verifica el checksum y determina a qué examen, modelo y página pertenece la imagen. Si ninguna zona QR produce un resultado válido, se activa la incidencia \texttt{QR\_READ\_ERROR} y la página queda en estado \texttt{PENDING\_RECOGNITION} a la espera de intervención manual por parte del coordinador.. Si el QR indica un examen o modelo que no existe en el sistema, se activa `QR\_MISMATCH`.
 
     \textbf{Salida:} ExamPage asociada al examen, modelo y número de página correspondientes, o marcada con incidencia si el QR no pudo procesarse.
 

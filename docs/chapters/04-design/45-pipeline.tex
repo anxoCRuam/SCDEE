@@ -1,0 +1,176 @@
+El \textit{pipeline} de ingesta y reconocimiento convierte cada fichero
+escaneado que llega a la carpeta \acs{sftp} en un \texttt{ExamPage}
+enriquecido con datos estructurados, y asigna el conjunto resultante a
+las \dfnpl{instancia} de los alumnos convocados. Se compone de tres
+subtareas Celery diferenciadas que se ejecutan en cascada:
+\texttt{ingest\_page\_task} (normalización),
+\texttt{recognize\_page\_task} (reconocimiento) y
+\texttt{assemble\_exam\_pages} (ensamblado y \textit{matching},
+diferida). Las tres se diagraman por separado en las
+\cref{fig:ingest-page-task,fig:recognize-page-task,fig:assemble-exam-pages};
+la composición completa de las tres en su orden de ejecución natural se
+incluye en la \cref{fig:ocr-flow-full} (\cref{AP:SEQUENCE}).
+
+
+\subsection{Normalización}
+\label{SS:DES-INGEST-PROCESSING}
+
+La tarea \texttt{ingest\_page\_task} es el punto de entrada del
+\textit{pipeline} (\cref{fig:ingest-page-task}). Recibe un fichero
+—imagen o \acs{pdf} multipágina— depositado por el \dfn{watcher} de
+\acs{sftp}, valida su tamaño contra el límite configurado por la
+organización y lo normaliza a una o varias imágenes png a
+\(200\,\text{dpi}\). Cada imagen se sube a MinIO bajo una clave que
+codifica organización, examen y página, y se crea un registro
+\texttt{ExamPage} en estado \texttt{PENDING\_RECOGNITION}. Finalmente, se
+encola una tarea \texttt{recognize\_page\_task} por página en la cola
+\texttt{recognition} de Celery.
+
+\begin{figure}[Subtarea de normalización]%
+              {fig:ingest-page-task}%
+              {Subtarea \texttt{ingest\_page\_task}: normalización del
+               fichero entrante y creación de las \texttt{ExamPage}.}
+  \image{}{0.32\textheight}{plantuml/ingest_page_task}
+\end{figure}
+
+La conservación del lote físico de origen es relevante para la fase
+posterior de \textit{matching}: las páginas extraídas de un mismo
+fichero comparten un \texttt{batch\_id} que las identifica como
+pertenecientes al mismo examen, lo que aporta evidencia cruzada cuando
+alguna de ellas tiene un reconocimiento débil.
+
+
+\subsection{Reconocimiento}
+\label{SS:DES-INGEST-RECOGNITION}
+
+La tarea \texttt{recognize\_page\_task} (\cref{fig:recognize-page-task})
+descarga la imagen de MinIO e invoca al \textit{dispatcher} de
+reconocedores. El reconocimiento procede en dos pasos:
+
+\begin{enumerate}
+  \item \textbf{Decodificación \acs{qr}.} Un único \texttt{QRRecognizer}
+  se ejecuta sobre la imagen completa para identificar la página. Si el
+  \acs{qr} decodifica correctamente y supera la verificación de
+  \textit{checksum}, se extraen \texttt{org\_id}, \texttt{exam\_id},
+  \texttt{model\_id} y \texttt{page\_number}, y se resuelve el
+  \texttt{PageProfile} correspondiente, que define las
+  \dfnpl{zonaocr} esperadas en esa página. Si el \acs{qr} es ilegible, la
+  página se marca con incidencia \texttt{QR\_READ\_ERROR} y se omite el
+  resto del reconocimiento: la página permanece en
+  \texttt{PENDING\_RECOGNITION} a la espera de intervención manual del
+  coordinador.
+
+  \item \textbf{Reconocimiento de zonas.} Para cada zona no-\acs{qr} del
+  perfil, el \textit{dispatcher} recorta la región correspondiente y
+  delega en el reconocedor adecuado según el tipo de zona: el
+  \texttt{OCRRecognizer} para texto y números —apoyado en el motor
+  \acs{ocr} \dfn{plugin} configurado por la organización—, o el
+  \texttt{CheckboxRecognizer} para casillas de verificación, basado en
+  densidad de píxeles oscuros.
+\end{enumerate}
+
+\begin{figure}[Subtarea de reconocimiento]%
+              {fig:recognize-page-task}%
+              {Subtarea \texttt{recognize\_page\_task}: decodificación
+               \acs{qr} y reconocimiento de zonas del perfil mediante el
+               motor activo y los reconocedores especializados.}
+  \image{}{0.40\textheight}{plantuml/recognize_page_task}
+\end{figure}
+
+Los resultados se almacenan en el campo \texttt{recognized\_data} del
+\texttt{ExamPage}, junto con la confianza reportada por el motor para
+cada zona, y la página transita a \texttt{RECOGNIZED}. A continuación se
+dispara \texttt{schedule\_assembly}, que encola la subtarea de
+ensamblado con una ventana de espera configurable para permitir que se
+acumulen el resto de páginas del mismo examen antes de resolver el
+\textit{matching} sobre el conjunto completo.
+
+
+\subsection{Ensamblado y asignación óptima}
+\label{SS:DES-INGEST-ASSEMBLY}
+
+El problema del ensamblado consiste en decidir a qué alumno pertenece
+cada página reconocida. Por la mecánica de la entrega física —el alumno
+escribe nombre, \acs{nia} y \acs{dni} en zonas \acs{ocr} de la portada
+y, opcionalmente, en páginas interiores— el sistema dispone de hasta
+cuatro campos identificativos por examen, todos ellos contaminados por
+errores de escritura y por errores de reconocimiento. El diseño actual
+(V2) llega tras dos formulaciones intermedias que conviene enunciar
+para entender qué problema resuelve cada salto.
+
+\paragraph{V1 — Decisión local por página.}
+La formulación inicial trataba el problema como una clasificación
+independiente por página: para cada \texttt{ExamPage}, se calculaba la
+similaridad de sus campos \acs{ocr} contra cada alumno convocado y se
+le asignaba al alumno con mayor puntuación si esta superaba un umbral
+mínimo. Esta formulación falla por construcción. En primer lugar, las
+decisiones locales no garantizan biyección: dos páginas distintas
+pueden caer en el mismo alumno y otro queda sin examen, sin que el
+algoritmo tenga manera de resolver el conflicto. En segundo lugar, son
+incoherentes entre páginas del mismo lote físico, que por construcción
+pertenecen al mismo alumno: una página puede asignarse a un alumno y
+otra del mismo \acs{pdf} a otro distinto, en función del ruido \acs{ocr}
+que afecte a cada portada.
+
+\paragraph{V1.5 — \textit{Greedy} con descartes y refuerzo por lote.}
+La segunda formulación corrige los dos defectos anteriores agregando
+las páginas en lotes (\texttt{batch\_id}) y resolviendo los lotes en
+orden de confianza descendente, retirando del pool de candidatos a cada
+alumno cuando se le asigna un lote. El refuerzo por lote estabiliza las
+decisiones entre páginas hermanas —la evidencia \acs{ocr} de varias
+páginas vota por el mismo candidato—, y el procesamiento ordenado
+garantiza biyección. Sin embargo, sigue siendo una heurística
+\textit{greedy} con el orden de procesamiento como única salvaguarda: un
+lote con \textit{matching} débil que se procese antes que otro con
+\textit{matching} fuerte puede consumir al mejor candidato del segundo,
+sin que la formulación tenga manera de revisar la decisión a la luz de
+la nueva evidencia. El resultado no es óptimo globalmente.
+
+\paragraph{V2 — Optimización global mediante el algoritmo húngaro.}
+La formulación adoptada redefine el problema como una asignación global
+\(1\)-a-\(1\) entre lotes y alumnos convocados, equivalente al problema
+clásico de asignación lineal: dada una matriz de puntuaciones \(P_{ij}\)
+entre el lote~\(i\) y el alumno~\(j\), encontrar la asignación \(M\)
+que maximice
+\(\sum_{(i,j)\in M} P_{ij}\) sujeta a que cada lote y cada alumno
+aparezcan en como mucho una pareja. Este problema se resuelve en tiempo
+polinómico \(\Theta(n^{3})\) mediante el algoritmo húngaro de
+Kuhn--Munkres~\cite{kuhn1955hungarian}, con la implementación de
+\texttt{scipy.optimize.linear\_sum\_assignment}. La asignación así
+obtenida es globalmente óptima, garantiza biyección por construcción y
+procesa la información del examen completo a la vez en lugar de en
+orden de llegada.
+
+\begin{figure}[Subtarea de ensamblado y matching]%
+              {fig:assemble-exam-pages}%
+              {Subtarea \texttt{assemble\_exam\_pages}: ventana de
+               espera, construcción de la matriz de puntuaciones,
+               algoritmo húngaro y persistencia de las
+               \texttt{ExamInstance}.}
+  \image{}{0.36\textheight}{plantuml/assemble_exam_pages}
+\end{figure}
+
+La \cref{fig:assemble-exam-pages} muestra el flujo concreto de la
+subtarea. Para evitar resolver el \textit{matching} antes de tiempo y
+desperdiciar trabajo cuando aún faltan páginas por llegar, la subtarea
+se dispara mediante una ventana de espera con doble criterio: por
+\textbf{saturación}, cuando han llegado todas las páginas esperadas
+\((\text{n\_alumnos}\times\text{páginas\_por\_modelo})\); o por
+\textbf{timeout}, si vence el plazo de espera. La política optimista
+sobre el umbral es deliberada: los lotes cuyo \textit{matching} no
+supere el umbral mínimo se persisten igualmente como
+\dfnpl{instancia} sin identificar marcadas con la incidencia
+\texttt{LOW\_MATCH\_CONFIDENCE}, dejando la decisión final al
+\dfn{corrector} en el flujo de revisión. Cuesta menos a un corrector
+revisar un examen mal asignado que rastrear un examen ausente, y el
+ciclo de corrección ya incluye una etapa de revisión humana en la que
+cualquier asignación errónea aflora.
+
+La V3 contemplada en la \cref{SEC:CONCL-FUTURE-WORK} extiende esta
+formulación con refuerzo cruzado entre páginas del mismo lote
+(\textit{cross-page reinforcement}), aprovechando que la caligrafía y
+los errores \acs{ocr} suelen propagarse coherentemente entre páginas
+escritas por la misma persona. El detalle de implementación de V2 —la
+función de \textit{scoring}, las clases de equivalencia \acs{ocr} y la
+construcción de la matriz de costes— se desarrolla en la
+\cref{SS:IMPL-MATCHING}.

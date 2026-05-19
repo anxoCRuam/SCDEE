@@ -1,16 +1,76 @@
-El backend del SCDEE se ha desarrollado de forma completa y operativa,
-cumpliendo plenamente cinco de los seis objetivos planteados en
-\cref{SEC:INTRO-OBJECTIVES}: el \dfn{backend} multi-tenant, la
-arquitectura modular con \dfnpl{plugin} intercambiables, el
-\textit{pipeline} de ingesta y reconocimiento, las medidas técnicas de
-seguridad y \acs{rgpd}, y la generación automática del contrato OpenAPI.
-El sexto objetivo, la validación del sistema, se cumple parcialmente:
-las pruebas unitarias y de integración alcanzan un 88\,\% de cobertura
-y validan el \cref{rnf:concurrency} en escenarios de operación normal,
-pero identifican un cuello de botella bajo carga máxima de publicación,
-abordable mediante las líneas descritas en
-\cref{SEC:CONCL-FUTURE-WORK}.
+Este Trabajo Fin de Grado ha producido el \dfn{backend} completo del
+SCDEE, un sistema distribuido \dfn{multi-tenant} que automatiza el ciclo
+de corrección de exámenes escritos desde la ingesta de páginas escaneadas
+hasta el archivo definitivo.
 
-El sistema resultante procesa el ciclo completo de un examen escrito
-desde la entrega física hasta el archivo definitivo, exponiendo todas
-sus operaciones a través de una \acs{api} \acs{rest} documentada.
+A continuación se revisa el grado de consecución de cada uno de los ocho
+objetivos planteados en \cref{SEC:INTRO-OBJECTIVES}:
+
+\begin{enumerate}
+
+  \item \textbf{Backend \dfn{multi-tenant} completo.}
+  \label{OBJ:BACKEND-MULTITENANT}
+  \textbf{Conseguido.} El sistema implementa el ciclo completo de
+  corrección sobre una arquitectura \dfn{multi-tenant} con aislamiento
+  lógico por organización.
+
+  \item \textbf{Arquitectura modular y extensible.}
+  \label{OBJ:MODULAR-ARCH}
+  \textbf{Conseguido.} El código se organiza en trece aplicaciones con
+  responsabilidades acotadas y una capa de servicios explícita
+  (\cref{SEC:DES-LAYERS}). Los puntos de extensión por \dfnpl{plugin}
+  (autenticación, motores de \acs{ocr}, reconocedores de zonas) se
+  describen en \cref{SEC:DES-PLUGINS} y se materializan en
+  \cref{SEC:IMPL-CRITICAL}.
+
+  \item \textbf{\textit{Pipeline} de ingesta y reconocimiento.}
+  \label{OBJ:OCR-PIPELINE}
+  \textbf{Conseguido.} El \textit{pipeline} combina identificación por
+  código \acs{qr}, reconocimiento óptico con dos motores intercambiables
+  y un algoritmo de asignación óptima mediante el método húngaro
+  (\cref{SEC:DES-INGEST}). Con la capacidad de lograr un 100\,\% de
+  precisión en la identificación de alumnos.
+
+  \item \textbf{Ciclo operativo completo de corrección.}
+  \label{OBJ:GRADING-CYCLE}
+  \textbf{Conseguido.} El sistema cubre la definición flexible de zonas
+  (\cref{SEC:DES-DATA}), la asignación de correctores mediante reglas
+  configurables, las anotaciones de texto,
+  \textit{stylus} y audio, y la calificación manual
+  y por rúbrica.
+
+  \item \textbf{Configuración dinámica y mantenimiento automatizado.}
+  \label{OBJ:CONFIG-MAINTENANCE}
+  \textbf{Conseguido.} Cada organización dispone de parámetros
+  configurables en caliente y tareas periódicas de borrado automático
+  con notificación previa a los gestores.
+
+  \item \textbf{Seguridad y protección de datos.}
+  \label{OBJ:SECURITY-RGPD}
+  \textbf{Conseguido.} El sistema implementa cifrado en reposo del
+  \acs{dni}, \textit{hashing} de contraseñas, auditoría,
+  \textit{soft-delete} de usuarios y mecanismos de protección
+  anti-descarga de exámenes (\cref{SEC:DES-SECURITY}).
+
+  \item \textbf{Documentación OpenAPI como contrato.}
+  \label{OBJ:OPENAPI-CONTRACT}
+  \textbf{Conseguido.} La especificación OpenAPI 3.x se genera
+  automáticamente a partir del código y constituye el contrato de
+  integración con el \dfn{frontend} (\cref{SEC:DES-API}).
+
+  \item \textbf{Validación del sistema.}
+  \label{OBJ:VALIDATION}
+  \textbf{Conseguido con reservas.} Las pruebas unitarias y de
+  integración alcanzan un 88\,\% de cobertura. Las pruebas de carga
+  (\cref{SEC:TEST-LOAD}) validan el \cref{rnf:concurrency} en operación
+  normal de corrección e ingesta, pero identifican un cuello de botella
+  en la descarga masiva de \acs{pdf}.
+
+\end{enumerate}
+
+El SCDEE demuestra que es posible construir un sistema de corrección
+digital completo, seguro y adaptable al contexto académico español con
+tecnologías de software libre, sin depender de plataformas comerciales
+externas. La arquitectura modular y la preparación para extensiones
+futuras lo posicionan como una base
+sólida sobre la que construir un producto desplegable en producción.
