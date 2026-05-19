@@ -145,8 +145,8 @@ de las notas de un examen, siendo así fácilmente integrable con SIGMA.
 \subsection{Máquina de estados con control de concurrencia (\texttt{instances})}
 
 Cada transición de estado de una \texttt{ExamInstance} se ejecuta
-dentro de un bloque \texttt{transaction.atomic()} con
-\texttt{select\_for\_update()} sobre la fila de la instancia. Esto
+con \texttt{select\_for\_update()} sobre la fila de la instancia
+dentro de un bloque \texttt{transaction.atomic()}. Esto
 garantiza que dos transiciones concurrentes sobre la misma instancia
 no puedan ambas tener éxito cuando solo una es legal, en particular
 para la transición a \texttt{PUBLISHED}, que requiere que la
@@ -212,8 +212,8 @@ negativo.
 
 El detalle de la persistencia (disparo por saturación o
 \textit{timeout}, creación de \texttt{ExamInstance} y propagación de
-incidencias \texttt{MISSING\_PAGE}, \texttt{STUDENT\_NOT\_IDENTIFIED}
-y \texttt{LOW\_MATCH\_CONFIDENCE}) se diagrama en la
+incidencias \texttt{LOW\_MATCH\_CONFIDENCE}, \texttt{STUDENT\_NOT\_IDENTIFIED}
+y por último \texttt{MISSING\_PAGE}) se representa en la
 \cref{fig:seq-multipage-ingest} y el flujo completo de las tres
 subtareas en la \cref{fig:ocr-flow-full} (\cref{AP:SEQUENCE}).
 
